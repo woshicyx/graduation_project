@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Star, TrendingUp, DollarSign, Play, Heart } from "lucide-react";
+import { Star, TrendingUp, DollarSign, Play, Heart, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Movie } from "@/lib/mock-movies";
+import { Movie } from "@/lib/api/movies";
+import { useTopBoxOffice, useTopRated } from "@/hooks/useMovies";
 import {
   Carousel,
   CarouselContent,
@@ -23,23 +24,42 @@ import { Button } from "@/components/ui/button";
 type MovieCarouselProps = {
   title: string;
   subtitle?: string;
-  movies: Movie[];
   variant: "boxOffice" | "rating";
+  limit?: number;
 };
 
 export function MovieCarousel({
   title,
   subtitle,
-  movies,
   variant,
+  limit = 12,
 }: MovieCarouselProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const carouselRef = useRef<HTMLDivElement>(null);
 
+  // 使用React Query获取数据
+  const { 
+    data: boxOfficeData, 
+    isLoading: isLoadingBoxOffice,
+    error: boxOfficeError 
+  } = useTopBoxOffice({ limit });
+  
+  const { 
+    data: ratedData, 
+    isLoading: isLoadingRated,
+    error: ratedError 
+  } = useTopRated({ limit });
+
+  const isLoading = variant === "boxOffice" ? isLoadingBoxOffice : isLoadingRated;
+  const error = variant === "boxOffice" ? boxOfficeError : ratedError;
+  const movies = variant === "boxOffice" 
+    ? (boxOfficeData?.items || [])
+    : (ratedData?.items || []);
+
   // 自动轮播效果
   useEffect(() => {
-    if (isHovered || !carouselRef.current) return;
+    if (isHovered || !carouselRef.current || movies.length === 0) return;
 
     const interval = setInterval(() => {
       const nextButton = carouselRef.current?.querySelector(
@@ -51,7 +71,7 @@ export function MovieCarousel({
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [isHovered]);
+  }, [isHovered, movies.length]);
 
   const toggleFavorite = (movieId: string) => {
     setFavorites((prev) => {
@@ -64,6 +84,114 @@ export function MovieCarousel({
       return newFavorites;
     });
   };
+
+  // 加载状态
+  if (isLoading) {
+    return (
+      <section className="mx-auto mb-12 mt-6 w-full max-w-6xl">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+                {variant === "boxOffice" ? (
+                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <TrendingUp className="h-5 w-5 text-amber-400" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white sm:text-2xl">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex h-64 items-center justify-center rounded-lg bg-slate-900/50">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+            <p className="text-sm text-slate-400">正在加载电影数据...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <section className="mx-auto mb-12 mt-6 w-full max-w-6xl">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+                {variant === "boxOffice" ? (
+                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <TrendingUp className="h-5 w-5 text-amber-400" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white sm:text-2xl">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex h-64 items-center justify-center rounded-lg bg-rose-900/20 border border-rose-700/30">
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-rose-400">加载电影数据失败</p>
+            <p className="text-sm text-slate-400">请检查后端API连接</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // 空数据状态
+  if (movies.length === 0) {
+    return (
+      <section className="mx-auto mb-12 mt-6 w-full max-w-6xl">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+                {variant === "boxOffice" ? (
+                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <TrendingUp className="h-5 w-5 text-amber-400" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white sm:text-2xl">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex h-64 items-center justify-center rounded-lg bg-slate-900/50">
+          <p className="text-slate-400">暂无电影数据</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section 
@@ -282,4 +410,3 @@ function formatBoxOfficeShort(amount: number): string {
   }
   return `${amount}`;
 }
-

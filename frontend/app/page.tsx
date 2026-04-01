@@ -2,7 +2,6 @@ import { HeroSection } from "@/components/hero-section";
 import { MovieCarousel } from "@/components/movie-carousel";
 import { SearchHero } from "@/components/search-hero";
 import { AiChatFab } from "@/components/ai-chat-fab";
-import { topBoxOffice, topRated } from "@/lib/mock-movies";
 
 export default function Home() {
   return (
@@ -53,18 +52,18 @@ export default function Home() {
           <div className="mt-12 space-y-12">
             <MovieCarousel
               title="影史票房 TOP 50"
-              subtitle="基于 Movie Metadata 中的 box_office 字段，后续会接入真实 SQL 统计。"
-              movies={topBoxOffice}
+              subtitle="基于真实数据库中的票房数据，实时从4,803部电影中统计"
               variant="boxOffice"
+              limit={12}
             />
             
             <div className="relative">
               <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/5 via-transparent to-blue-500/5 blur-3xl" />
               <MovieCarousel
                 title="最高评分 TOP 50"
-                subtitle="基于 Movie Metadata + Reviews 的加权评分，目前为示意数据。"
-                movies={topRated}
+                subtitle="基于真实数据库中的评分数据，实时从4,803部电影中统计"
                 variant="rating"
+                limit={12}
               />
             </div>
           </div>

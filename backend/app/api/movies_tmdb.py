@@ -1,29 +1,149 @@
+"""
+基于TMDB数据库的电影API
+返回真实数据库数据
+"""
+
 from __future__ import annotations
 
-from typing import Annotated, Optional
-from datetime import date
-
+from typing import Annotated, List, Optional
+from datetime import date as date_type
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, func, desc, and_, or_
+from sqlalchemy.sql import text
 
 from ..core.db import get_db
-from ..models_tmdb import Movie
 from ..schemas_tmdb import (
-    MovieDetail,
-    MovieListItem,
+    DatabaseMovie, 
+    MovieListItem, 
+    PaginatedMovies, 
     MovieSearchFilters,
-    PaginatedMovies,
-    TopMoviesRequest,
-    MovieStats,
-    SystemStats,
-    GenreStats,
-    DirectorStats
+    MovieStats
 )
-import json
 
 router = APIRouter(prefix="/movies", tags=["movies"])
+
+
+async def get_movie_by_id(db: AsyncSession, movie_id: int) -> Optional[DatabaseMovie]:
+    """根据ID获取电影"""
+    query = text("""
+        SELECT * FROM movies 
+        WHERE id = :movie_id
+    """)
+    
+    result = await db.execute(query, {"movie_id": movie_id})
+    row = result.fetchone()
+    
+    if not row:
+        return None
+    
+    # 将行转换为字典
+    movie_dict = dict(row._mapping)
+    return DatabaseMovie(**movie_dict)
+
+
+async def search_movies(
+    db: AsyncSession,
+    filters: MovieSearchFilters,
+    order_by: str = "popularity"
+) -> tuple[List[DatabaseMovie], int]:
+    """搜索电影"""
+    # 构建基础查询
+    base_query = """
+        SELECT * FROM movies 
+        WHERE 1=1
+    """
+    
+    params = {}
+    conditions = []
+    
+    # 关键字搜索
+    if filters.q:
+        conditions.append("""
+            (title ILIKE :q OR 
+             original_title ILIKE :q OR 
+             overview ILIKE :q OR 
+             director ILIKE :q)
+        """)
+        params["q"] = f"%{filters.q}%"
+    
+    # 导演筛选
+    if filters.director:
+        conditions.append("director ILIKE :director")
+        params["director"] = f"%{filters.director}%"
+    
+    # 评分范围
+    if filters.rating_min is not None:
+        conditions.append("vote_average >= :rating_min")
+        params["rating_min"] = filters.rating_min
+    
+    if filters.rating_max is not None:
+        conditions.append("vote_average <= :rating_max")
+        params["rating_max"] = filters.rating_max
+    
+    # 票房范围
+    if filters.box_office_min is not None:
+        conditions.append("revenue >= :box_office_min")
+        params["box_office_min"] = filters.box_office_min
+    
+    if filters.box_office_max is not None:
+        conditions.append("revenue <= :box_office_max")
+        params["box_office_max"] = filters.box_office_max
+    
+    # 上映日期范围
+    if filters.release_date_from:
+        conditions.append("release_date >= :release_date_from")
+        params["release_date_from"] = filters.release_date_from
+    
+    if filters.release_date_to:
+        conditions.append("release_date <= :release_date_to")
+        params["release_date_to"] = filters.release_date_to
+    
+    # 添加条件到查询
+    if conditions:
+        base_query += " AND " + " AND ".join(conditions)
+    
+    # 排序
+    order_mapping = {
+        "popularity": "popularity DESC",
+        "rating": "vote_average DESC",
+        "box_office": "revenue DESC",
+        "release_date": "release_date DESC",
+        "title": "title ASC"
+    }
+    order_clause = order_mapping.get(order_by, "popularity DESC")
+    base_query += f" ORDER BY {order_clause}"
+    
+    # 分页
+    offset = (filters.page - 1) * filters.page_size
+    base_query += " LIMIT :limit OFFSET :offset"
+    params["limit"] = filters.page_size
+    params["offset"] = offset
+    
+    # 执行查询
+    result = await db.execute(text(base_query), params)
+    rows = result.fetchall()
+    
+    # 转换为DatabaseMovie对象
+    movies = []
+    for row in rows:
+        movie_dict = dict(row._mapping)
+        movies.append(DatabaseMovie(**movie_dict))
+    
+    # 获取总数
+    count_query = """
+        SELECT COUNT(*) as total FROM movies 
+        WHERE 1=1
+    """
+    if conditions:
+        count_query += " AND " + " AND ".join(conditions)
+    
+    # 移除分页参数
+    count_params = {k: v for k, v in params.items() if k not in ["limit", "offset"]}
+    count_result = await db.execute(text(count_query), count_params)
+    total = count_result.scalar()
+    
+    return movies, total
 
 
 @router.get(
@@ -37,105 +157,59 @@ async def list_movies(
     genre: str | None = None,
     rating_min: float | None = Query(default=None, ge=0.0, le=10.0),
     rating_max: float | None = Query(default=None, ge=0.0, le=10.0),
-    revenue_min: int | None = Query(default=None, ge=0),
-    revenue_max: int | None = Query(default=None, ge=0),
+    box_office_min: int | None = Query(default=None, ge=0),
+    box_office_max: int | None = Query(default=None, ge=0),
     release_date_from: str | None = None,
     release_date_to: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    order_by: str = Query(default="popularity", description="排序字段: popularity, rating, box_office, release_date, title"),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> PaginatedMovies:
-    """
-    获取电影列表，支持多种筛选条件
-    """
-    try:
-        # 构建查询
-        query = select(Movie)
-        
-        # 关键字搜索
-        if q:
-            query = query.where(
-                or_(
-                    Movie.title.ilike(f"%{q}%"),
-                    Movie.overview.ilike(f"%{q}%"),
-                    Movie.director.ilike(f"%{q}%")
-                )
+    """获取电影列表，支持搜索和筛选"""
+    
+    # 解析日期
+    from_date = None
+    to_date = None
+    
+    if release_date_from:
+        try:
+            from_date = date_type.fromisoformat(release_date_from)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="release_date_from格式错误，应为YYYY-MM-DD"
             )
-        
-        # 导演筛选
-        if director:
-            query = query.where(Movie.director.ilike(f"%{director}%"))
-        
-        # 类型筛选
-        if genre:
-            query = query.where(Movie.genres.ilike(f'%"{genre}"%'))
-        
-        # 评分范围筛选
-        if rating_min is not None:
-            query = query.where(Movie.vote_average >= rating_min)
-        if rating_max is not None:
-            query = query.where(Movie.vote_average <= rating_max)
-        
-        # 票房范围筛选
-        if revenue_min is not None:
-            query = query.where(Movie.revenue >= revenue_min)
-        if revenue_max is not None:
-            query = query.where(Movie.revenue <= revenue_max)
-        
-        # 上映日期范围筛选
-        if release_date_from:
-            query = query.where(Movie.release_date >= release_date_from)
-        if release_date_to:
-            query = query.where(Movie.release_date <= release_date_to)
-        
-        # 计算总数
-        count_query = select(func.count()).select_from(query.subquery())
-        total_result = await db.execute(count_query)
-        total = total_result.scalar()
-        
-        # 分页
-        offset = (page - 1) * page_size
-        query = query.order_by(desc(Movie.popularity)).offset(offset).limit(page_size)
-        
-        # 执行查询
-        result = await db.execute(query)
-        movies = result.scalars().all()
-        
-        # 转换为响应模型
-        items = []
-        for movie in movies:
-            # 解析类型
-            genres = []
-            if movie.genres:
-                try:
-                    genres = json.loads(movie.genres)
-                except:
-                    genres = []
-            
-            items.append(MovieListItem(
-                id=movie.id,
-                title=movie.title,
-                poster_path=movie.poster_path,
-                vote_average=movie.vote_average,
-                popularity=movie.popularity,
-                release_date=movie.release_date,
-                genres=genres,
-                director=movie.director,
-                revenue=movie.revenue
-            ))
-        
-        return PaginatedMovies(
-            items=items,
-            total=total,
-            page=page,
-            page_size=page_size
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+    
+    if release_date_to:
+        try:
+            to_date = date_type.fromisoformat(release_date_to)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="release_date_to格式错误，应为YYYY-MM-DD"
+            )
+    
+    # 创建过滤器
+    filters = MovieSearchFilters(
+        q=q,
+        director=director,
+        genre=genre,  # 注意：当前数据库结构不支持类型筛选
+        rating_min=rating_min,
+        rating_max=rating_max,
+        box_office_min=box_office_min,
+        box_office_max=box_office_max,
+        release_date_from=from_date,
+        release_date_to=to_date,
+        page=page,
+        page_size=page_size,
+    )
+    
+    # 搜索电影
+    movies, total = await search_movies(db, filters, order_by)
+    
+    # 返回分页结果
+    return PaginatedMovies.from_database_movies(movies, total, page, page_size)
 
 
 @router.get(
@@ -147,53 +221,29 @@ async def top_box_office(
     limit: int = Query(default=50, ge=1, le=100),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> PaginatedMovies:
-    """
-    获取票房最高的电影
-    """
-    try:
-        query = (
-            select(Movie)
-            .where(Movie.revenue > 0)
-            .order_by(desc(Movie.revenue))
-            .limit(limit)
-        )
-        
-        result = await db.execute(query)
-        movies = result.scalars().all()
-        
-        items = []
-        for movie in movies:
-            genres = []
-            if movie.genres:
-                try:
-                    genres = json.loads(movie.genres)
-                except:
-                    genres = []
-            
-            items.append(MovieListItem(
-                id=movie.id,
-                title=movie.title,
-                poster_path=movie.poster_path,
-                vote_average=movie.vote_average,
-                popularity=movie.popularity,
-                release_date=movie.release_date,
-                genres=genres,
-                director=movie.director,
-                revenue=movie.revenue
-            ))
-        
-        return PaginatedMovies(
-            items=items,
-            total=len(items),
-            page=1,
-            page_size=limit
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+    """获取票房最高电影"""
+    
+    query = text("""
+        SELECT * FROM movies 
+        WHERE revenue > 0 
+        ORDER BY revenue DESC 
+        LIMIT :limit
+    """)
+    
+    result = await db.execute(query, {"limit": limit})
+    rows = result.fetchall()
+    
+    movies = []
+    for row in rows:
+        movie_dict = dict(row._mapping)
+        movies.append(DatabaseMovie(**movie_dict))
+    
+    # 获取总数
+    count_query = text("SELECT COUNT(*) as total FROM movies WHERE revenue > 0")
+    count_result = await db.execute(count_query)
+    total = count_result.scalar()
+    
+    return PaginatedMovies.from_database_movies(movies, total, 1, limit)
 
 
 @router.get(
@@ -203,255 +253,168 @@ async def top_box_office(
 )
 async def top_rated(
     limit: int = Query(default=50, ge=1, le=100),
+    min_votes: int = Query(default=100, description="最小投票数，避免评分偏差"),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> PaginatedMovies:
-    """
-    获取评分最高的电影
-    """
-    try:
-        query = (
-            select(Movie)
-            .where(Movie.vote_average > 0)
-            .order_by(desc(Movie.vote_average))
-            .limit(limit)
-        )
-        
-        result = await db.execute(query)
-        movies = result.scalars().all()
-        
-        items = []
-        for movie in movies:
-            genres = []
-            if movie.genres:
-                try:
-                    genres = json.loads(movie.genres)
-                except:
-                    genres = []
-            
-            items.append(MovieListItem(
-                id=movie.id,
-                title=movie.title,
-                poster_path=movie.poster_path,
-                vote_average=movie.vote_average,
-                popularity=movie.popularity,
-                release_date=movie.release_date,
-                genres=genres,
-                director=movie.director,
-                revenue=movie.revenue
-            ))
-        
-        return PaginatedMovies(
-            items=items,
-            total=len(items),
-            page=1,
-            page_size=limit
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
-        )
+    """获取评分最高电影"""
+    
+    query = text("""
+        SELECT * FROM movies 
+        WHERE vote_count >= :min_votes AND vote_average > 0
+        ORDER BY vote_average DESC 
+        LIMIT :limit
+    """)
+    
+    result = await db.execute(query, {"limit": limit, "min_votes": min_votes})
+    rows = result.fetchall()
+    
+    movies = []
+    for row in rows:
+        movie_dict = dict(row._mapping)
+        movies.append(DatabaseMovie(**movie_dict))
+    
+    # 获取总数
+    count_query = text("""
+        SELECT COUNT(*) as total FROM movies 
+        WHERE vote_count >= :min_votes AND vote_average > 0
+    """)
+    count_result = await db.execute(count_query, {"min_votes": min_votes})
+    total = count_result.scalar()
+    
+    return PaginatedMovies.from_database_movies(movies, total, 1, limit)
+
+
+@router.get(
+    "/random",
+    response_model=PaginatedMovies,
+    summary="随机推荐电影",
+)
+async def random_movies(
+    limit: int = Query(default=10, ge=1, le=50),
+    min_rating: float = Query(default=6.0, description="最小评分"),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+) -> PaginatedMovies:
+    """获取随机推荐电影"""
+    
+    query = text("""
+        SELECT * FROM movies 
+        WHERE vote_average >= :min_rating 
+        ORDER BY RANDOM() 
+        LIMIT :limit
+    """)
+    
+    result = await db.execute(query, {"limit": limit, "min_rating": min_rating})
+    rows = result.fetchall()
+    
+    movies = []
+    for row in rows:
+        movie_dict = dict(row._mapping)
+        movies.append(DatabaseMovie(**movie_dict))
+    
+    # 获取符合条件的总数
+    count_query = text("""
+        SELECT COUNT(*) as total FROM movies 
+        WHERE vote_average >= :min_rating
+    """)
+    count_result = await db.execute(count_query, {"min_rating": min_rating})
+    total = count_result.scalar()
+    
+    return PaginatedMovies.from_database_movies(movies, total, 1, limit)
 
 
 @router.get(
     "/{movie_id}",
-    response_model=MovieDetail,
+    response_model=DatabaseMovie,
     summary="电影详情",
 )
 async def get_movie_detail(
     movie_id: int,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> MovieDetail:
-    """
-    获取电影详情
-    """
-    try:
-        query = select(Movie).where(Movie.id == movie_id)
-        result = await db.execute(query)
-        movie = result.scalar_one_or_none()
-        
-        if not movie:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"电影ID {movie_id} 不存在"
-            )
-        
-        # 解析类型
-        genres_list = []
-        if movie.genres:
-            try:
-                genres_list = json.loads(movie.genres)
-            except:
-                genres_list = []
-        
-        return MovieDetail(
-            id=movie.id,
-            title=movie.title,
-            overview=movie.overview,
-            tagline=movie.tagline,
-            budget=movie.budget,
-            revenue=movie.revenue,
-            popularity=movie.popularity,
-            release_date=movie.release_date,
-            runtime=movie.runtime,
-            vote_average=movie.vote_average,
-            vote_count=movie.vote_count,
-            poster_path=movie.poster_path,
-            status=movie.status,
-            genres=movie.genres,
-            director=movie.director,
-            created_at=movie.created_at,
-            updated_at=movie.updated_at,
-            genres_list=genres_list
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
+) -> DatabaseMovie:
+    """获取电影详情"""
+    
+    movie = await get_movie_by_id(db, movie_id)
+    
+    if not movie:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查询失败: {str(e)}"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"电影ID {movie_id} 不存在",
         )
+    
+    return movie
 
 
 @router.get(
     "/stats/summary",
     response_model=MovieStats,
-    summary="电影统计摘要",
+    summary="电影统计信息",
 )
 async def get_movie_stats(
     db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> MovieStats:
-    """
-    获取电影统计信息
-    """
-    try:
-        # 总电影数
-        total_query = select(func.count()).select_from(Movie)
-        total_result = await db.execute(total_query)
-        total_movies = total_result.scalar()
-        
-        # 有预算的电影数
-        budget_query = select(func.count()).where(Movie.budget > 0)
-        budget_result = await db.execute(budget_query)
-        movies_with_budget = budget_result.scalar()
-        
-        # 有票房的电影数
-        revenue_query = select(func.count()).where(Movie.revenue > 0)
-        revenue_result = await db.execute(revenue_query)
-        movies_with_revenue = revenue_result.scalar()
-        
-        # 有评分的电影数
-        rating_query = select(func.count()).where(Movie.vote_average > 0)
-        rating_result = await db.execute(rating_query)
-        movies_with_rating = rating_result.scalar()
-        
-        # 平均评分
-        avg_rating_query = select(func.avg(Movie.vote_average)).where(Movie.vote_average > 0)
-        avg_rating_result = await db.execute(avg_rating_query)
-        avg_rating = avg_rating_result.scalar()
-        
-        # 平均票房
-        avg_revenue_query = select(func.avg(Movie.revenue)).where(Movie.revenue > 0)
-        avg_revenue_result = await db.execute(avg_revenue_query)
-        avg_revenue = avg_revenue_result.scalar()
-        
-        # 评分最高的5部电影
-        top_movies_query = (
-            select(Movie)
-            .where(Movie.vote_average > 0)
-            .order_by(desc(Movie.vote_average))
-            .limit(5)
-        )
-        top_movies_result = await db.execute(top_movies_query)
-        top_movies = top_movies_result.scalars().all()
-        
-        top_movies_list = []
-        for movie in top_movies:
-            genres = []
-            if movie.genres:
-                try:
-                    genres = json.loads(movie.genres)
-                except:
-                    genres = []
-            
-            top_movies_list.append(MovieListItem(
-                id=movie.id,
-                title=movie.title,
-                poster_path=movie.poster_path,
-                vote_average=movie.vote_average,
-                popularity=movie.popularity,
-                release_date=movie.release_date,
-                genres=genres,
-                director=movie.director,
-                revenue=movie.revenue
-            ))
-        
-        return MovieStats(
-            total_movies=total_movies,
-            movies_with_budget=movies_with_budget,
-            movies_with_revenue=movies_with_revenue,
-            movies_with_rating=movies_with_rating,
-            avg_rating=avg_rating,
-            avg_revenue=avg_revenue,
-            top_movies=top_movies_list
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"统计查询失败: {str(e)}"
-        )
-
-
-@router.get(
-    "/random",
-    response_model=MovieListItem,
-    summary="随机获取一部电影",
-)
-async def get_random_movie(
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> MovieListItem:
-    """
-    随机获取一部电影
-    """
-    try:
-        # 使用数据库的随机函数
-        query = select(Movie).order_by(func.random()).limit(1)
-        result = await db.execute(query)
-        movie = result.scalar_one_or_none()
-        
-        if not movie:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="没有找到电影"
-            )
-        
-        # 解析类型
-        genres = []
-        if movie.genres:
-            try:
-                genres = json.loads(movie.genres)
-            except:
-                genres = []
-        
-        return MovieListItem(
-            id=movie.id,
-            title=movie.title,
-            poster_path=movie.poster_path,
-            vote_average=movie.vote_average,
-            popularity=movie.popularity,
-            release_date=movie.release_date,
-            genres=genres,
-            director=movie.director,
-            revenue=movie.revenue
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"随机查询失败: {str(e)}"
-        )
+    """获取电影库统计信息"""
+    
+    # 获取总数
+    total_query = text("SELECT COUNT(*) as total FROM movies")
+    total_result = await db.execute(total_query)
+    total = total_result.scalar() or 0
+    
+    # 获取平均评分
+    avg_rating_query = text("""
+        SELECT AVG(vote_average) as avg_rating 
+        FROM movies 
+        WHERE vote_average > 0
+    """)
+    avg_rating_result = await db.execute(avg_rating_query)
+    avg_rating = avg_rating_result.scalar() or 0
+    
+    # 获取总票房
+    total_box_office_query = text("""
+        SELECT SUM(revenue) as total_box_office 
+        FROM movies 
+        WHERE revenue > 0
+    """)
+    total_box_office_result = await db.execute(total_box_office_query)
+    total_box_office = total_box_office_result.scalar() or 0
+    
+    # 获取类型分布（简化版本）
+    genres_query = text("""
+        SELECT COUNT(*) as count 
+        FROM movies 
+        WHERE genres IS NOT NULL AND genres != ''
+    """)
+    genres_result = await db.execute(genres_query)
+    genres_count = genres_result.scalar() or 0
+    
+    # 获取年份分布
+    year_query = text("""
+        SELECT EXTRACT(YEAR FROM release_date) as year, COUNT(*) as count
+        FROM movies 
+        WHERE release_date IS NOT NULL
+        GROUP BY EXTRACT(YEAR FROM release_date)
+        ORDER BY year DESC
+        LIMIT 20
+    """)
+    year_result = await db.execute(year_query)
+    by_year = {int(row.year): row.count for row in year_result.fetchall() if row.year}
+    
+    # 获取语言分布
+    language_query = text("""
+        SELECT original_language, COUNT(*) as count
+        FROM movies 
+        WHERE original_language IS NOT NULL
+        GROUP BY original_language
+        ORDER BY count DESC
+        LIMIT 10
+    """)
+    language_result = await db.execute(language_query)
+    by_language = {row.original_language: row.count for row in language_result.fetchall()}
+    
+    return MovieStats(
+        total=total,
+        average_rating=round(avg_rating, 2),
+        total_box_office=total_box_office,
+        genres={"total_with_genres": genres_count},  # 简化处理
+        by_year=by_year,
+        by_language=by_language,
+    )
