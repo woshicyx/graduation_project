@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
-from .api import health, movies_tmdb, search, recommend
+from .api import health, movies_tmdb, search, recommend, reviews, auth, user
 
 
 def create_app() -> FastAPI:
@@ -29,9 +29,12 @@ def create_app() -> FastAPI:
 
     # 注册路由
     app.include_router(health.router)
+    app.include_router(auth.router, prefix="/api")
+    app.include_router(user.router, prefix="/api")
     app.include_router(movies_tmdb.router, prefix="/api")
     app.include_router(search.router, prefix="/api")
     app.include_router(recommend.router, prefix="/api")
+    app.include_router(reviews.router, prefix="/api")
 
     return app
 

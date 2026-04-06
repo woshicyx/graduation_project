@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { Star, TrendingUp, DollarSign, Play, Heart, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Movie } from "@/lib/api/movies";
@@ -267,96 +268,98 @@ export function MovieCarousel({
                     />
                   </button>
 
-                  <Card className="overflow-hidden border-slate-700/60 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/90 transition-all duration-300 group-hover:border-slate-600/80 group-hover:shadow-2xl">
-                    {/* 海报区域 */}
-                    <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-900/60">
-                      <img
-                        src={movie.posterUrl}
-                        alt={movie.title}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      
-                      {/* 评分标签 */}
-                      {variant === "rating" && (
-                        <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-amber-500/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg">
-                          <Star className="mr-1.5 h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                          {movie.rating.toFixed(1)}
-                        </div>
-                      )}
-                      
-                      {/* 票房标签 */}
-                      {variant === "boxOffice" && (
-                        <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg">
-                          <DollarSign className="mr-1.5 h-3.5 w-3.5" />
-                          {formatBoxOfficeShort(movie.boxOffice)}
-                        </div>
-                      )}
-                      
-                      {/* 悬停遮罩 */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                      
-                      {/* 播放按钮 */}
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:opacity-100">
-                        <Button className="rounded-full bg-white/20 backdrop-blur hover:bg-white/30">
-                          <Play className="h-6 w-6 text-white" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* 电影信息 */}
-                    <CardHeader className="space-y-2 pb-3 pt-4">
-                      <CardTitle className="line-clamp-1 text-base font-semibold text-white group-hover:text-emerald-300">
-                        {movie.title}
-                      </CardTitle>
-                      <CardDescription className="line-clamp-1 text-sm text-slate-300">
-                        {movie.genres.join(" · ")}
-                      </CardDescription>
-                    </CardHeader>
-                    
-                    <CardContent className="pb-5 pt-0">
-                      <div className="space-y-3">
-                        {/* 导演信息 */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400">导演：</span>
-                          <span className="text-xs font-medium text-slate-300">
-                            {movie.director}
-                          </span>
-                        </div>
+                  <Link href={`/movies/${movie.id}`}>
+                    <Card className="overflow-hidden border-slate-700/60 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/90 transition-all duration-300 group-hover:border-slate-600/80 group-hover:shadow-2xl cursor-pointer">
+                      {/* 海报区域 */}
+                      <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-900/60">
+                        <img
+                          src={movie.posterUrl}
+                          alt={movie.title}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
                         
-                        {/* 主要指标 */}
-                        <div className="flex items-center justify-between">
+                        {/* 评分标签 */}
+                        {variant === "rating" && (
+                          <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-amber-500/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg">
+                            <Star className="mr-1.5 h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                            {movie.rating.toFixed(1)}
+                          </div>
+                        )}
+                        
+                        {/* 票房标签 */}
+                        {variant === "boxOffice" && (
+                          <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg">
+                            <DollarSign className="mr-1.5 h-3.5 w-3.5" />
+                            {formatBoxOfficeShort(movie.boxOffice)}
+                          </div>
+                        )}
+                        
+                        {/* 悬停遮罩 */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        
+                        {/* 播放按钮 */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:opacity-100">
+                          <Button className="rounded-full bg-white/20 backdrop-blur hover:bg-white/30">
+                            <Play className="h-6 w-6 text-white" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 电影信息 */}
+                      <CardHeader className="space-y-2 pb-3 pt-4">
+                        <CardTitle className="line-clamp-1 text-base font-semibold text-white group-hover:text-emerald-300">
+                          {movie.title}
+                        </CardTitle>
+                        <CardDescription className="line-clamp-1 text-sm text-slate-300">
+                          {movie.genres.join(" · ")}
+                        </CardDescription>
+                      </CardHeader>
+                      
+                      <CardContent className="pb-5 pt-0">
+                        <div className="space-y-3">
+                          {/* 导演信息 */}
                           <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 text-amber-400" />
-                              <span className="text-xs font-medium text-white">
-                                {movie.rating.toFixed(1)}
-                              </span>
-                            </div>
-                            <span className="text-xs text-slate-500">|</span>
-                            <div className="flex items-center gap-1">
-                              <TrendingUp className="h-3 w-3 text-blue-400" />
-                              <span className="text-xs font-medium text-white">
-                                {movie.popularity.toFixed(1)}
-                              </span>
-                            </div>
+                            <span className="text-xs text-slate-400">导演：</span>
+                            <span className="text-xs font-medium text-slate-300">
+                              {movie.director}
+                            </span>
                           </div>
                           
-                          {/* 详细数据 */}
-                          <div className="text-right">
-                            {variant === "boxOffice" ? (
-                              <p className="text-xs font-semibold text-emerald-300">
-                                {formatBoxOffice(movie.boxOffice)}
-                              </p>
-                            ) : (
-                              <p className="text-xs text-slate-400">
-                                上映：{movie.releaseDate.split("-")[0]}
-                              </p>
-                            )}
+                          {/* 主要指标 */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 text-amber-400" />
+                                <span className="text-xs font-medium text-white">
+                                  {movie.rating.toFixed(1)}
+                                </span>
+                              </div>
+                              <span className="text-xs text-slate-500">|</span>
+                              <div className="flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3 text-blue-400" />
+                                <span className="text-xs font-medium text-white">
+                                  {movie.popularity.toFixed(1)}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* 详细数据 */}
+                            <div className="text-right">
+                              {variant === "boxOffice" ? (
+                                <p className="text-xs font-semibold text-emerald-300">
+                                  {formatBoxOffice(movie.boxOffice)}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-400">
+                                  上映：{movie.releaseDate.split("-")[0]}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 </motion.div>
               </CarouselItem>
             ))}

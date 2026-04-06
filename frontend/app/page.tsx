@@ -2,6 +2,7 @@ import { HeroSection } from "@/components/hero-section";
 import { MovieCarousel } from "@/components/movie-carousel";
 import { SearchHero } from "@/components/search-hero";
 import { AiChatFab } from "@/components/ai-chat-fab";
+import { UserNavigation } from "@/components/user-navigation";
 
 export default function Home() {
   return (
@@ -24,23 +25,7 @@ export default function Home() {
                 Movie<span className="text-emerald-400">AI</span>
               </h1>
             </div>
-            <div className="hidden items-center gap-6 text-sm text-slate-300 sm:flex">
-              <a href="#" className="transition-colors hover:text-white">
-                首页
-              </a>
-              <a href="#" className="transition-colors hover:text-white">
-                电影库
-              </a>
-              <a href="#" className="transition-colors hover:text-white">
-                排行榜
-              </a>
-              <a href="#" className="transition-colors hover:text-white">
-                关于
-              </a>
-            </div>
-            <button className="rounded-full border border-slate-700/60 bg-slate-800/40 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-700/60 hover:text-white">
-              登录 / 注册
-            </button>
+            <UserNavigation />
           </div>
         </header>
 

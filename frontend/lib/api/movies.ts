@@ -44,6 +44,23 @@ export interface Movie {
   posterUrl: string;
   popularity: number;
   synopsis: string;
+  // 扩展字段
+  original_title?: string;
+  tagline?: string;
+  budget?: number;
+  revenue?: number;
+  runtime?: number;
+  vote_average?: number;
+  vote_count?: number;
+  poster_path?: string;
+  homepage?: string;
+  status?: string;
+  original_language?: string;
+  production_companies?: string;
+  production_countries?: string;
+  spoken_languages?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // 搜索参数
@@ -99,6 +116,23 @@ export function transformDatabaseMovie(dbMovie: DatabaseMovie): Movie {
     posterUrl,
     popularity: dbMovie.popularity || 0,
     synopsis: dbMovie.overview || dbMovie.tagline || '暂无简介',
+    // 扩展字段
+    original_title: dbMovie.original_title,
+    tagline: dbMovie.tagline,
+    budget: dbMovie.budget,
+    revenue: dbMovie.revenue,
+    runtime: dbMovie.runtime,
+    vote_average: dbMovie.vote_average,
+    vote_count: dbMovie.vote_count,
+    poster_path: dbMovie.poster_path,
+    homepage: dbMovie.homepage,
+    status: dbMovie.status,
+    original_language: dbMovie.original_language,
+    production_companies: dbMovie.production_companies,
+    production_countries: dbMovie.production_countries,
+    spoken_languages: dbMovie.spoken_languages,
+    created_at: dbMovie.created_at,
+    updated_at: dbMovie.updated_at,
   };
 }
 
