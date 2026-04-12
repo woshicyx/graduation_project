@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
-from .api import health, movies_tmdb, search, recommend, reviews, auth, user
+from .api.v1 import health, movies_tmdb, search, recommend, reviews, auth, user
 
 
 def create_app() -> FastAPI:
@@ -18,17 +18,23 @@ def create_app() -> FastAPI:
         debug=settings.debug,
     )
 
-    # CORS：前端 Next.js 默认跑在 3000 端口
+    # CORS：允许前端开发服务器访问
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=[
+            "http://localhost:3000", 
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+            "*"  # 开发环境允许所有来源
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     # 注册路由
-    app.include_router(health.router)
+    app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(user.router, prefix="/api")
     app.include_router(movies_tmdb.router, prefix="/api")

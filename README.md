@@ -15,7 +15,7 @@
 ## 📁 项目结构
 
 ```
-graduation_project/
+MovieAI/
 ├── backend/                    # FastAPI 后端
 │   ├── app/                   # 应用代码
 │   │   ├── api/              # API 路由

@@ -18,4 +18,7 @@ opentelemetry-api
 opentelemetry-sdk
 opentelemetry-instrumentation-fastapi
 opentelemetry-exporter-prometheus
+bcrypt
+pyjwt
+python-multipart
 
