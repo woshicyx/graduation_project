@@ -1,118 +1,263 @@
-项目名称：智能电影推荐平台
-1. 项目概述
+# 智能电影推荐平台 - 项目规格
 
-本项目旨在构建一个融合了 LLM、RAG（检索增强生成）技术与传统推荐算法（协同过滤）的现代化电影推荐网站。系统结合了结构化数据检索、非结构化语义检索与用户行为分析，支持游客与注册用户的差异化体验，提供精美的 UI 界面、个性化推荐以及智能化的对话探索功能。
+## 1. 项目概述
 
-2. 技术栈推荐
+本项目旨在构建一个融合 LLM、RAG（检索增强生成）技术与传统推荐算法的现代化电影推荐平台。系统支持自然语言智能搜索、个性化推荐和 AI 对话助手功能。
 
-前端: Next.js 14 (App Router), TypeScript, Tailwind CSS, Shadcn/UI (用于精美组件), Framer Motion (动画).
+### 1.1 核心目标
 
-身份认证: NextAuth.js (Auth.js) 或 Clerk (处理用户登录/注册、会话管理).
+- **RAG 智能推荐**: 基于向量数据库的自然语言电影检索和推荐
+- **海量数据**: 8800+ 部电影完整信息
+- **AI 对话**: 智能理解用户需求，返回带推荐理由的结果
 
-后端: Python FastAPI (处理 AI 逻辑、RAG 与 协同过滤算法) 或 Next.js API Routes.
+## 2. 技术栈
 
-数据库:
+| 组件 | 技术 | 版本/说明 |
+|------|------|----------|
+| 前端框架 | Next.js 14 | App Router, TypeScript |
+| UI 样式 | Tailwind CSS | Shadcn/UI 组件库 |
+| 后端框架 | FastAPI | Python 3.11+ |
+| 关系数据库 | PostgreSQL | 电影、用户、影评数据 |
+| 向量数据库 | Qdrant Cloud | 7995 个语义向量 |
+| AI Embedding | 智谱AI | embedding-2 (1024维) |
+| 认证 | JWT | bcrypt 密码哈希 |
 
-关系型：PostgreSQL (存储电影元数据、用户信息、浏览历史、收藏夹等).
+## 3. 功能模块
 
-向量库：Qdrant 或 Pinecone (存储电影剧情、影评的 Embedding，用于 RAG).
+### 3.1 用户系统
 
-AI/LLM: OpenAI API (或国内兼容接口如通义千问、DeepSeek), LangChain / LlamaIndex (RAG 流程).
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 用户注册 | ✅ | 邮箱 + 密码 |
+| 用户登录 | ✅ | JWT Token |
+| 用户信息 | ✅ | 基础信息展示 |
 
-推荐算法库: Python Surprise 库或基于 PyTorch/Scikit-learn 实现协同过滤（UserCF/ItemCF/矩阵分解）.
+### 3.2 电影系统
 
-数据源: TMDB API 或 爬虫采集 (用于初始化数据).
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 电影列表 | ✅ | 分页展示 |
+| 电影详情 | ✅ | 完整信息 + 海报 |
+| 随机推荐 | ✅ | 随机 N 部高分电影 |
+| 电影统计 | ✅ | 总数、评分、票房分布 |
 
-3. 核心功能模块
-3.1 用户系统 (User System) 
+### 3.3 搜索系统
 
-游客模式: 免登录访问。只能使用搜索功能，并在首页查看基于全局统计的推荐（影史 Top 50、票房 Top 50 等），无浏览记录和收藏功能。
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 关键字搜索 | ✅ | 标题、剧情、导演 |
+| 混合搜索 | ✅ | 向量 + 结构化 |
 
-注册用户模式:
+### 3.4 推荐系统
 
-支持账号密码登录或第三方登录（如 GitHub/Google）。
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| RAG 语义推荐 | ✅ | 自然语言查询 |
+| AI 推荐理由 | 🔄 | LLM 生成说明 |
 
-自动记录用户的浏览历史。
+### 3.5 影评系统
 
-支持对电影进行“收藏/喜欢”操作。
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 发布影评 | ✅ | 评分 + 内容 |
+| 影评列表 | ✅ | 支持排序 |
+| 影评投票 | ✅ | 有帮助/无帮助 |
 
-解锁个性化推荐（猜你喜欢）与完整的个人中心。
+### 3.6 AI 对话助手
 
-后台管理模式 (Admin): 供系统管理员登录，提供数据大屏（统计用户增长、每日高频搜索词），并支持对电影元数据进行基础的增删改查 (CRUD) 操作。
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 对话页面 | ✅ | Next.js 页面 |
+| 流式输出 | 🔄 | 智谱AI 流式 |
 
-3.2 搜索系统 (Hybrid Search)
+## 4. 页面规划
 
-支持字段：电影名、类型、导演、评分范围、票房范围、上映时间。
+```
+/
+├── 首页 (/)
+│   ├── 搜索栏
+│   ├── 热门电影轮播
+│   └── 票房/评分排行榜
+│
+├── 搜索结果 (/search)
+│   ├── 侧边栏筛选
+│   └── 电影网格
+│
+├── 电影详情 (/movies/[id])
+│   ├── 海报 + 基本信息
+│   ├── 剧情简介
+│   ├── 相似电影
+│   └── 影评区
+│
+├── AI 对话 (/chat)
+│   ├── 对话历史
+│   └── 推荐卡片
+│
+├── 个人中心 (/profile)
+│   └── 用户信息
+│
+└── 认证 (/auth)
+    ├── 登录
+    └── 注册
+```
 
-实现：PostgreSQL 结构化检索 + 向量相似度混合搜索。
+## 5. API 设计
 
-3.3 推荐系统 (Recommendation System)
+### 5.1 认证 API
 
-本系统采用混合推荐策略，针对不同场景和用户状态提供服务：
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/auth/register` | POST | 用户注册 |
+| `/api/auth/login` | POST | 用户登录 |
 
-全局统计推荐 (面向所有用户): 基于 SQL 查询的热门榜单（Top 50 票房，Top 50 评分，实时热度）。
+### 5.2 电影 API
 
-协同过滤推荐 ("猜你喜欢"，仅限登录用户): 基于用户的历史浏览记录和收藏数据，采用协同过滤算法（User-Based 或 Item-Based CF），为用户生成个性化推荐列表。
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/movies` | GET | 电影列表 |
+| `/api/movies/{id}` | GET | 电影详情 |
+| `/api/movies/random` | GET | 随机推荐 |
+| `/api/movies/stats/summary` | GET | 统计信息 |
 
-AI 对话推荐 (基于 RAG): 基于用户自然语言对话意图，通过 RAG 检索数据库，由 LLM 理解并生成带说明理由的精准推荐列表。
+### 5.3 搜索与推荐 API
 
-3.4 电影详情页
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/search` | GET | 混合搜索 |
+| `/api/recommend` | POST | AI 智能推荐 |
 
-展示内容：海报、基本信息（导演、主演、时长等）、剧情简介、预告片。
+### 5.4 影评 API
 
-交互功能：登录用户可点击“收藏”按钮。
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/reviews` | GET/POST | 影评列表/发布 |
+| `/api/reviews/{id}/vote` | POST | 投票 |
+| `/api/reviews/stats/{movie_id}` | GET | 统计 |
 
-数据支撑：5-10 条精选影评（不仅用于展示，也是 RAG 的核心检索源）。
+### 5.5 用户 API
 
-关联推荐：基于当前电影属性或 ItemCF 算法展示“相似影片”。
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/user/profile` | GET | 用户信息 |
 
-3.5 AI 智能助手
+## 6. 数据库设计
 
-界面：全局悬浮按钮或独立聊天页面。
+### 6.1 movies 表
 
-功能：多轮对话，理解用户模糊需求（如“我想看一部类似《星际穿越》的烧脑电影，且带有悬疑元素”），返回卡片式的推荐结果并支持直接跳转详情页。
+```sql
+-- 核心电影信息
+id, title, overview, tagline, budget, revenue, popularity
+release_date, runtime, vote_average, vote_count
+genres, keywords, director, rag_text
+```
 
-4. 页面规划
+### 6.2 users 表
 
-首页 (Home):
+```sql
+-- 用户信息
+id, username, email, password_hash
+```
 
-大搜索栏（带标签筛选）。
+### 6.3 reviews 表
 
-游客视图：展示全局热门轮播、票房排行榜、高分排行榜。
+```sql
+-- 影评
+id, user_id, movie_id, rating, title, content
+helpful_count, unhelpful_count
+```
 
-登录视图：新增并置顶“猜你喜欢”专属推荐模块。
+### 6.4 review_votes 表
 
-搜索结果页 (Search Result): 侧边栏多维度筛选、电影网格化列表展示。
+```sql
+-- 影评投票
+id, user_id, review_id, is_helpful
+```
 
-电影详情页 (Movie Detail): 详细信息区、影评区、相似推荐区、收藏操作区。
+## 7. 向量检索设计
 
-AI 助手页 (AI Chat): 类似 ChatGPT 的对话界面，支持流式输出与推荐卡片渲染。
+### 7.1 Qdrant Collection
 
-个人中心 (User Profile) :
+```python
+collection_name = "movie_semantic"
+vector_size = 1024
+distance = "Cosine"
+```
 
-浏览历史：按时间倒序展示用户看过的电影详情页记录。
+### 7.2 rag_text 模板
 
-我的收藏：展示用户标记喜欢的电影列表。
+```text
+Title: {title}
+Overview: {overview}
+Genres: {genres}
+Director: {director}
+Rating: {vote_average}
+```
 
-认证页面 (Auth) : 登录 (Login) 与注册 (Register) 页面。
+### 7.3 推荐公式
 
-5. 数据与算法流程
-5.1 RAG 处理流程 (AI 推荐)
+```text
+final_score = 0.70 × vector_score + 0.20 × rating_score + 0.10 × popularity_score
+```
 
-采集电影元数据、剧情简介、高质量影评。
+## 8. 开发进度
 
-数据清洗并进行文本分块 (Chunking)。
+### 已完成 ✅
 
-调用 Embedding 模型生成向量，存入 Qdrant/Pinecone。
+- [x] 项目结构重构
+- [x] 用户认证系统
+- [x] 电影浏览和详情
+- [x] RAG 向量索引 (7995 条)
+- [x] AI 智能推荐 API
+- [x] 影评系统
+- [x] AI 对话页面
+- [x] 个人中心页面
 
-用户 Query -> Embedding -> 向量相似度检索 -> 召回 Top K 相关电影 -> 注入 Prompt -> LLM 生成最终回答。
+### 开发中 🔄
 
-5.2 协同过滤推荐流程 (个性化推荐)
+- [ ] 个性化推荐 (协同过滤)
+- [ ] 用户收藏功能
+- [ ] 浏览历史记录
+- [ ] LLM 推荐理由生成
 
-数据收集：实时捕获登录用户的行为数据（浏览详情页计 1 分，收藏计 5 分），存入 PostgreSQL 行为日志表。
+### 待开发 📋
 
-矩阵构建：定时任务（或异步触发）拉取行为日志，构建 User-Item 评分矩阵。
+- [ ] 管理后台
+- [ ] 用户行为分析
+- [ ] 推荐系统优化
 
-算法计算：FastAPI 后端运行协同过滤算法，计算用户相似度或物品相似度。
+## 9. 环境配置
 
-结果缓存/展示：生成每个用户的“猜你喜欢”Top N 列表，当用户访问首页时优先展示。
+### 开发环境
+
+```bash
+# 后端
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=movie_recommendation
+DB_USER=postgres
+DB_PASSWORD=xxx
+
+# Qdrant
+QDRANT_URL=https://xxx.cloud.qdrant.io
+QDRANT_API_KEY=xxx
+
+# 智谱AI
+ZHIPUAI_API_KEY=xxx
+```
+
+### 端口配置
+
+| 服务 | 端口 |
+|------|------|
+| 前端 | 3000 |
+| 后端 API | 8015 |
+| Qdrant Dashboard | 6333 |
+
+## 10. 数据统计
+
+| 指标 | 数值 |
+|------|------|
+| 电影总数 | 8856 |
+| 有 rag_text | 8634 |
+| Qdrant 向量 | 7995 |
+| 向量维度 | 1024 |

@@ -1,42 +1,47 @@
-# 智能电影推荐平台 - 数据库架构设计
+# 智能电影推荐平台 - 系统设计
 
-## 1. 数据源：TMDB 5000 数据集
+## 1. 系统架构
 
-### 数据集组成
-- **tmdb_5000_movies.csv** - 电影核心信息 (4803部电影)
-  - id: 电影唯一ID (INT, 主键)
-  - title: 电影标题 (VARCHAR)
-  - original_title: 原始标题 (VARCHAR)
-  - overview: 剧情简介 (TEXT)
-  - budget: 制作预算 (BIGINT, 美元)
-  - revenue: 票房收入 (BIGINT, 美元)
-  - genres: 类型列表 (JSON数组)
-  - original_language: 原始语言 (VARCHAR)
-  - popularity: 流行度 (FLOAT)
-  - release_date: 上映日期 (DATE)
-  - runtime: 片长 (INT, 分钟)
-  - vote_average: 平均评分 (FLOAT)
-  - vote_count: 评分人数 (INT)
-  - poster_path: 海报路径 (VARCHAR)
-  - homepage: 官方主页 (VARCHAR)
-  - status: 发行状态 (VARCHAR)
-  - tagline: 宣传语 (TEXT)
+### 1.1 技术栈
 
-- **tmdb_5000_credits.csv** - 演职员信息
-  - movie_id: 关联电影ID (INT, 外键)
-  - title: 电影标题 (VARCHAR)
-  - cast: 演员列表 (JSON数组)
-  - crew: 制作人员列表 (JSON数组)
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| 前端 | Next.js 14 | App Router, TypeScript, Tailwind CSS |
+| 后端 | FastAPI | Python 3.11+, 异步 API |
+| 数据库 | PostgreSQL | 电影数据、用户数据、影评数据 |
+| 向量库 | Qdrant Cloud | 7995 个电影语义向量 |
+| AI | 智谱AI | embedding-2 (1024维) |
+
+### 1.2 架构图
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   前端      │────▶│   FastAPI   │────▶│ PostgreSQL  │
+│  Next.js    │◀────│   Backend   │◀────│  数据库      │
+└─────────────┘     └──────┬──────┘     └─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   Qdrant    │
+                    │  向量数据库   │
+                    └─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   智谱AI    │
+                    │  Embedding  │
+                    └─────────────┘
+```
 
 ## 2. 数据库架构 (PostgreSQL)
 
-### 2.1 核心表设计
+### 2.1 movies 表 (电影核心信息)
 
-#### movies 表 (电影核心信息)
 ```sql
 CREATE TABLE movies (
     id INTEGER PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
+    original_title VARCHAR(500),
     overview TEXT,
     tagline TEXT,
     budget BIGINT,
@@ -48,175 +53,220 @@ CREATE TABLE movies (
     vote_count INTEGER,
     poster_path VARCHAR(500),
     status VARCHAR(50),
-    genres TEXT,  -- 存储为JSON字符串: ["Action", "Adventure", "Sci-Fi"]
+    original_language VARCHAR(10),
+    genres TEXT,           -- JSON 字符串
+    keywords TEXT,         -- JSON 字符串
+    production_companies TEXT,
+    production_countries TEXT,
+    spoken_languages TEXT,
     director VARCHAR(500),
+    rag_text TEXT,         -- RAG 检索文本
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 性能索引
+CREATE INDEX idx_movies_title ON movies(title);
+CREATE INDEX idx_movies_release_date ON movies(release_date);
+CREATE INDEX idx_movies_vote_average ON movies(vote_average);
+CREATE INDEX idx_movies_popularity ON movies(popularity);
+CREATE INDEX idx_movies_rag_text ON movies(rag_text) WHERE rag_text IS NOT NULL;
+```
+
+### 2.2 users 表 (用户信息)
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-#### 索引设计
-```sql
--- 性能优化索引
-CREATE INDEX idx_movies_title ON movies(title);
-CREATE INDEX idx_movies_release_date ON movies(release_date);
-CREATE INDEX idx_movies_vote_average ON movies(vote_average);
-CREATE INDEX idx_movies_popularity ON movies(popularity);
-CREATE INDEX idx_movies_revenue ON movies(revenue);
-```
+### 2.3 reviews 表 (影评)
 
-### 2.2 扩展表设计 (可选)
-
-#### genres 表 (电影类型)
 ```sql
-CREATE TABLE genres (
+CREATE TABLE reviews (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER REFERENCES users(id),
+    movie_id INTEGER REFERENCES movies(id),
+    rating FLOAT NOT NULL CHECK (rating >= 1 AND rating <= 10),
+    title VARCHAR(255),
+    content TEXT,
+    helpful_count INTEGER DEFAULT 0,
+    unhelpful_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-#### movie_genres 表 (电影-类型关联)
+### 2.4 review_votes 表 (影评投票)
+
 ```sql
-CREATE TABLE movie_genres (
-    movie_id INTEGER REFERENCES movies(id) ON DELETE CASCADE,
-    genre_id INTEGER REFERENCES genres(id) ON DELETE CASCADE,
-    PRIMARY KEY (movie_id, genre_id)
+CREATE TABLE review_votes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    review_id INTEGER REFERENCES reviews(id),
+    is_helpful BOOLEAN NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, review_id)
 );
 ```
 
-#### actors 表 (演员)
-```sql
-CREATE TABLE actors (
-    id INTEGER PRIMARY KEY,
-    name VARCHAR(500) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+## 3. 向量数据库 (Qdrant)
+
+### 3.1 Collection 配置
+
+```python
+collection_name = "movie_semantic"
+vector_size = 1024  # embedding-2 维度
+distance = "Cosine"
 ```
 
-#### movie_actors 表 (电影-演员关联)
-```sql
-CREATE TABLE movie_actors (
-    movie_id INTEGER REFERENCES movies(id) ON DELETE CASCADE,
-    actor_id INTEGER REFERENCES actors(id) ON DELETE CASCADE,
-    character VARCHAR(500),
-    cast_order INTEGER,
-    PRIMARY KEY (movie_id, actor_id, character)
-);
+### 3.2 Point 结构
+
+```json
+{
+  "id": 680,
+  "vector": [0.123, ...],  // 1024 维
+  "payload": {
+    "movie_id": 680,
+    "title": "Inception",
+    "genres": ["Action", "Sci-Fi"],
+    "director": "Christopher Nolan",
+    "vote_average": 8.4,
+    "popularity": 220.3
+  }
+}
 ```
 
-#### directors 表 (导演)
-```sql
-CREATE TABLE directors (
-    id INTEGER PRIMARY KEY,
-    name VARCHAR(500) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 3.3 rag_text 模板
+
+```text
+Title: Inception
+Original title: Inception
+Overview: A thief who steals corporate secrets through dream-sharing technology...
+Tagline: Your mind is the scene of the crime.
+Genres: Action, Science Fiction, Adventure
+Keywords: dream, subconscious, heist
+Director: Christopher Nolan
+Original language: en
+Release year: 2010
+Runtime: 148 minutes
+Vote average: 8.4
 ```
 
-#### movie_directors 表 (电影-导演关联)
-```sql
-CREATE TABLE movie_directors (
-    movie_id INTEGER REFERENCES movies(id) ON DELETE CASCADE,
-    director_id INTEGER REFERENCES directors(id) ON DELETE CASCADE,
-    PRIMARY KEY (movie_id, director_id)
-);
+## 4. API 设计
+
+### 4.1 RESTful API
+
+```
+/api
+├── /health              GET    健康检查
+├── /auth
+│   ├── /register       POST   用户注册
+│   └── /login          POST   用户登录
+├── /movies
+│   ├── /{id}           GET    电影详情
+│   ├── /random         GET    随机推荐
+│   └── /stats/summary  GET    统计信息
+├── /search             GET    混合搜索
+├── /recommend          POST   AI 智能推荐
+├── /reviews
+│   ├── /{id}/vote      POST   影评投票
+│   └── /stats/{movie_id} GET  影评统计
+├── /user
+│   └── /profile        GET    用户信息
 ```
 
-## 3. 数据导入流程
-1. **下载数据集**: `python backend/scripts/download_tmdb_data.py`
-   - 从GitHub下载TMDB 5000数据集
-   - 验证数据完整性
-   - 创建示例数据（如下载失败）
+### 4.2 响应格式
 
-2. **数据库设置**: `python backend/scripts/setup_database.py`
-   - 检查PostgreSQL安装
-   - 创建数据库和用户
-   - 安装Python依赖
+```json
+// 成功响应
+{
+  "data": {...},
+  "message": "success"
+}
 
-3. **数据导入**: `python backend/scripts/import_tmdb_to_db.py`
-   - 创建数据库架构
-   - 解析CSV文件
-   - 批量导入数据
-   - 数据质量验证
-
-
-## 4. 查询优化策略
-
-### 4.1 常用查询模式
-```sql
--- 按评分排序
-SELECT * FROM movies 
-WHERE vote_average > 7.0 
-ORDER BY vote_average DESC 
-LIMIT 20;
-
--- 按票房排序
-SELECT * FROM movies 
-WHERE revenue > 100000000 
-ORDER BY revenue DESC 
-LIMIT 20;
-
--- 按类型筛选
-SELECT * FROM movies 
-WHERE genres LIKE '%"Action"%' 
-ORDER BY popularity DESC 
-LIMIT 20;
-
--- 按导演筛选
-SELECT * FROM movies 
-WHERE director LIKE '%Nolan%' 
-ORDER BY release_date DESC;
-
--- 综合搜索
-SELECT * FROM movies 
-WHERE title ILIKE '%star%' 
-   OR overview ILIKE '%space%' 
-ORDER BY popularity DESC 
-LIMIT 20;
+// 错误响应
+{
+  "detail": "Error message",
+  "code": "ERROR_CODE"
+}
 ```
 
-### 4.2 性能优化
-- **索引策略**: 为常用查询字段创建索引
-- **查询优化**: 使用EXPLAIN ANALYZE分析查询计划
-- **连接优化**: 合理使用JOIN和子查询
-- **分页优化**: 使用OFFSET/LIMIT进行分页
+## 5. RAG 推荐流程
 
-## 5. 向量数据库集成 (pgvector)
+### 5.1 离线索引
 
-### 5.1 向量化存储
-```sql
--- 启用pgvector扩展
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- 创建电影向量表
-CREATE TABLE movie_vectors (
-    movie_id INTEGER PRIMARY KEY REFERENCES movies(id),
-    embedding vector(1536),  -- OpenAI text-embedding-3-small维度
-    text_content TEXT,       -- 用于生成向量的文本
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 创建向量索引
-CREATE INDEX idx_movie_vectors_embedding 
-ON movie_vectors 
-USING ivfflat (embedding vector_cosine_ops);
+```
+PostgreSQL (movies) → rag_text 生成 → 智谱AI Embedding → Qdrant upsert
 ```
 
-### 5.2 语义搜索
-```sql
--- 语义相似度搜索
-SELECT m.*, 
-       1 - (mv.embedding <=> '[0.1, 0.2, ...]') as similarity
-FROM movies m
-JOIN movie_vectors mv ON m.id = mv.movie_id
-ORDER BY mv.embedding <=> '[0.1, 0.2, ...]'
-LIMIT 10;
+### 5.2 在线推荐
+
+```
+用户查询 → 智谱AI Embedding → Qdrant 语义检索 → PostgreSQL 元数据
+    → 混合排序 (0.7*语义 + 0.2*评分 + 0.1*热度) → 智谱AI LLM → 推荐结果
 ```
 
-## 6. 数据统计与分析
-- 电影总数: ~4,800部
-- 平均评分分布: 0-10分
-- 票房分布: 0-2.7亿美元
-- 类型分布: 20+种电影类型
-- 时间跨度: 1916年至今
+## 6. 安全设计
+
+### 6.1 认证
+
+- JWT Token 认证
+- Token 有效期: 24 小时
+- 密码 bcrypt 哈希存储
+
+### 6.2 CORS
+
+```python
+allow_origins=[
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "*"  # 开发环境
+]
+```
+
+### 6.3 速率限制
+
+- 开发环境: 无限制
+- 生产环境: 100 请求/15分钟
+
+## 7. 性能优化
+
+### 7.1 数据库
+
+- 连接池: 1-10 个连接
+- 索引优化: 查询字段索引
+- 分页: 默认 20 条/页
+
+### 7.2 向量检索
+
+- Qdrant HNSW 索引
+- top-k 召回: 10-20 个
+
+### 7.3 前端
+
+- 图片懒加载
+- API 响应缓存
+- 代码分割
+
+## 8. 环境配置
+
+| 环境 | 数据库 | Qdrant |
+|------|--------|--------|
+| 开发 | localhost:5432 | localhost:6333 |
+| 生产 | 云端 PostgreSQL | Qdrant Cloud |
+
+## 9. 数据统计
+
+| 指标 | 数值 |
+|------|------|
+| 电影总数 | 8856 |
+| 有 rag_text | 8634 |
+| Qdrant 向量 | 7995 |
+| 向量维度 | 1024 |
