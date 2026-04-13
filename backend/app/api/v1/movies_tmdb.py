@@ -234,6 +234,93 @@ def get_movie_detail(
 
 
 @router.get(
+    "/top/rated",
+    response_model=PaginatedMovies,
+    summary="评分TOP电影",
+)
+def top_rated_movies(
+    limit: int = Query(default=20, ge=1, le=50),
+) -> PaginatedMovies:
+    """获取评分最高的电影"""
+    try:
+        query = """
+            SELECT * FROM movies 
+            WHERE vote_average > 0 AND vote_count >= 100
+            ORDER BY vote_average DESC, vote_count DESC
+            LIMIT %s
+        """
+        rows = Database.fetch(query, limit)
+        
+        movies = []
+        for row in rows:
+            movies.append(DatabaseMovie(**row))
+        
+        total = len(movies) if movies else 0
+        return PaginatedMovies.from_database_movies(movies, total, 1, limit)
+    except Exception as e:
+        print(f"数据库查询失败: {e}，返回模拟数据")
+        return PaginatedMovies.from_database_movies([], 0, 1, limit)
+
+
+@router.get(
+    "/top/popular",
+    response_model=PaginatedMovies,
+    summary="热度TOP电影",
+)
+def top_popular_movies(
+    limit: int = Query(default=20, ge=1, le=50),
+) -> PaginatedMovies:
+    """获取热度最高的电影"""
+    try:
+        query = """
+            SELECT * FROM movies 
+            WHERE popularity > 0
+            ORDER BY popularity DESC
+            LIMIT %s
+        """
+        rows = Database.fetch(query, limit)
+        
+        movies = []
+        for row in rows:
+            movies.append(DatabaseMovie(**row))
+        
+        total = len(movies) if movies else 0
+        return PaginatedMovies.from_database_movies(movies, total, 1, limit)
+    except Exception as e:
+        print(f"数据库查询失败: {e}，返回模拟数据")
+        return PaginatedMovies.from_database_movies([], 0, 1, limit)
+
+
+@router.get(
+    "/top/box-office",
+    response_model=PaginatedMovies,
+    summary="票房TOP电影",
+)
+def top_box_office_movies(
+    limit: int = Query(default=20, ge=1, le=50),
+) -> PaginatedMovies:
+    """获取票房最高的电影"""
+    try:
+        query = """
+            SELECT * FROM movies 
+            WHERE revenue > 0
+            ORDER BY revenue DESC
+            LIMIT %s
+        """
+        rows = Database.fetch(query, limit)
+        
+        movies = []
+        for row in rows:
+            movies.append(DatabaseMovie(**row))
+        
+        total = len(movies) if movies else 0
+        return PaginatedMovies.from_database_movies(movies, total, 1, limit)
+    except Exception as e:
+        print(f"数据库查询失败: {e}，返回模拟数据")
+        return PaginatedMovies.from_database_movies([], 0, 1, limit)
+
+
+@router.get(
     "/stats/summary",
     response_model=MovieStats,
     summary="电影统计信息",

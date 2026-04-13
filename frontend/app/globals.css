@@ -27,25 +27,30 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* 深色主题 - 暗黑电影风格 */
+    --background: 240 10% 4%;        /* #0a0a0f - 接近纯黑 */
+    --foreground: 0 0% 90%;          /* #e5e5e5 - 柔和白 */
+    --card: 240 10% 7%;              /* #111116 - 深灰卡片 */
+    --card-foreground: 0 0% 90%;     /* #e5e5e5 */
+    --popover: 240 10% 7%;           /* #111116 */
+    --popover-foreground: 0 0% 90%;
+    --primary: 0 72% 50%;            /* #e50914 - Netflix红 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 10% 12%;        /* #1a1a1f - 次级背景 */
+    --secondary-foreground: 0 0% 90%;
+    --muted: 240 10% 12%;            /* #1a1a1f */
+    --muted-foreground: 0 0% 55%;    /* #8b8b8b - 次级文字 */
+    --accent: 36 100% 50%;           /* #f5a623 - 金橙色 */
+    --accent-foreground: 240 10% 4%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 15%;              /* rgba(38,38,38,1) */
+    --input: 0 0% 15%;
+    --ring: 0 72% 50%;
+    
+    /* 自定义颜色变量 */
+    --red-glow: rgba(229, 9, 20, 0.3);
+    --orange-glow: rgba(245, 166, 35, 0.3);
   }
 }
 
@@ -53,7 +58,146 @@
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* 自定义滚动条 - 暗黑风格 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(20, 20, 20, 0.5);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(100, 100, 100, 0.5);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(120, 120, 120, 0.7);
+  }
+
+  /* 选中文字样式 */
+  ::selection {
+    background: rgba(229, 9, 20, 0.3);
+    color: #ffffff;
+  }
+}
+
+@layer components {
+  /* 电影卡片悬停效果 */
+  .movie-card-hover {
+    @apply transition-all duration-300;
+  }
+
+  .movie-card-hover:hover {
+    @apply border-red-500/50;
+    box-shadow: 0 0 30px var(--red-glow), 0 0 60px rgba(0, 0, 0, 0.8);
+    transform: translateY(-4px);
+  }
+
+  /* 毛玻璃效果 */
+  .glass-effect {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+  }
+
+  /* 红色发光按钮 */
+  .btn-red-glow {
+    @apply bg-gradient-to-r from-red-600 to-red-700 text-white;
+    box-shadow: 0 0 20px var(--red-glow);
+  }
+
+  .btn-red-glow:hover {
+    @apply from-red-500 to-red-600;
+    box-shadow: 0 0 30px var(--red-glow), 0 0 50px rgba(229, 9, 20, 0.2);
+  }
+
+  /* 金橙色渐变文字 */
+  .text-gradient-orange {
+    @apply bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent;
+  }
+
+  /* 电影海报渐变遮罩 */
+  .movie-poster-gradient {
+    background: linear-gradient(
+      to top,
+      rgba(10, 10, 15, 1) 0%,
+      rgba(10, 10, 15, 0.8) 30%,
+      transparent 70%
+    );
+  }
+
+  /* 侧边渐变 */
+  .side-gradient-left {
+    background: linear-gradient(
+      to right,
+      rgba(10, 10, 15, 1) 0%,
+      rgba(10, 10, 15, 0.9) 20%,
+      transparent 100%
+    );
+  }
+
+  .side-gradient-right {
+    background: linear-gradient(
+      to left,
+      rgba(10, 10, 15, 1) 0%,
+      rgba(10, 10, 15, 0.9) 20%,
+      transparent 100%
+    );
+  }
+
+  /* 评分徽章 */
+  .rating-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg;
+  }
+
+  /* 票房徽章 */
+  .boxoffice-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 to-yellow-500 px-3 py-1.5 text-xs font-bold text-black shadow-lg;
+  }
+}
+
+@layer utilities {
+  /* 动画延迟工具类 */
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  /* 红色光晕效果 */
+  .red-glow {
+    box-shadow: 0 0 20px var(--red-glow), 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* 橙色光晕效果 */
+  .orange-glow {
+    box-shadow: 0 0 20px var(--orange-glow), 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* 文字阴影 */
+  .text-shadow-red {
+    text-shadow: 0 0 20px var(--red-glow);
+  }
+
+  /* 平滑滚动 */
+  .scroll-smooth {
+    scroll-behavior: smooth;
   }
 }

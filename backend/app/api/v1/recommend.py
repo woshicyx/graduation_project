@@ -172,6 +172,94 @@ async def ai_search(
 
 
 @router.post(
+    "/recommend/stream",
+    summary="AI 推荐（流式输出）",
+)
+async def recommend_movies_stream(payload: schemas.RecommendRequest):
+    """
+    基于增强 RAG 的电影推荐接口 - 流式输出版本
+    
+    流式返回：
+    - event: movie - 单个推荐电影信息
+    - event: done - 推荐完成
+    - event: error - 错误信息
+    """
+    from fastapi.responses import StreamingResponse
+    import json
+    import asyncio
+    
+    start_time = time.time()
+    limit = min(payload.max_results, 20)
+    
+    async def generate():
+        try:
+            # 使用增强混合搜索
+            result = enhanced_hybrid_search(
+                query=payload.query,
+                limit=limit
+            )
+            
+            movies = result.get("movies", [])
+            llm_success = result.get("llm_parsing_success", False)
+            semantic_query = result.get("semantic_query", payload.query)
+            filters = result.get("filters", {})
+            
+            # 发送初始信息
+            yield f"event: info\ndata: {json.dumps({'type': 'start', 'query': payload.query, 'llm_success': llm_success})}\n\n"
+            
+            # 逐个发送电影
+            for i, movie in enumerate(movies[:limit]):
+                movie_id = movie.get("id")
+                
+                # 解析 genres
+                genres = movie.get("genres", [])
+                if isinstance(genres, str):
+                    try:
+                        genres = json.loads(genres)
+                    except:
+                        genres = []
+                
+                movie_data = {
+                    "type": "movie",
+                    "index": i,
+                    "movie_id": movie_id,
+                    "title": movie.get("title", "未知电影"),
+                    "poster_path": movie.get("poster_path"),
+                    "vote_average": movie.get("vote_average"),
+                    "release_date": movie.get("release_date"),
+                    "relevance_score": round(movie.get("final_score", movie.get("score", 0)), 4),
+                    "genres": [g.get("name") if isinstance(g, dict) else str(g) for g in genres],
+                }
+                
+                yield f"event: movie\ndata: {json.dumps(movie_data, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.1)  # 控制发送速率，让前端有打字机效果
+            
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            
+            # 发送完成信息
+            yield f"event: done\ndata: {json.dumps({'total': len(movies), 'time_ms': elapsed_ms})}\n\n"
+            
+            if llm_success:
+                print(f"流式推荐: '{payload.query}' -> 语义: '{semantic_query}', 过滤: {filters}")
+            
+        except Exception as e:
+            print(f"流式推荐失败: {e}")
+            import traceback
+            traceback.print_exc()
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@router.post(
     "/parse-query",
     summary="解析查询：提取硬性过滤条件（调试用）",
 )

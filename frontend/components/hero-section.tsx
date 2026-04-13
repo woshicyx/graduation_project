@@ -62,12 +62,12 @@ export function HeroSection() {
   // 加载状态
   if (isLoading) {
     return (
-      <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl">
+      <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#0a0a0f] via-[#111116] to-[#0a0a0f]">
         <div className="flex h-96 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-12 w-12 animate-spin text-emerald-400" />
-            <p className="text-lg text-slate-300">正在加载每日推荐...</p>
-            <p className="text-sm text-slate-500">从4,803部电影中为你精选</p>
+            <Loader2 className="h-12 w-12 animate-spin text-red-500" />
+            <p className="text-lg text-white/70">正在加载每日推荐...</p>
+            <p className="text-sm text-white/40">从4,803部电影中为你精选</p>
           </div>
         </div>
       </section>
@@ -77,14 +77,14 @@ export function HeroSection() {
   // 错误状态
   if (error) {
     return (
-      <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl">
+      <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#0a0a0f] via-[#111116] to-[#0a0a0f]">
         <div className="flex h-96 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <p className="text-lg text-rose-400">加载每日推荐失败</p>
-            <p className="text-sm text-slate-400">请检查后端API连接</p>
+            <p className="text-lg text-red-400">加载每日推荐失败</p>
+            <p className="text-sm text-white/50">请检查后端API连接</p>
             <Button 
               variant="outline" 
-              className="mt-2 border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700/60"
+              className="mt-2 border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={() => window.location.reload()}
             >
               重试
@@ -98,11 +98,11 @@ export function HeroSection() {
   // 空数据状态
   if (dailyPicks.length === 0) {
     return (
-      <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl">
+      <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#0a0a0f] via-[#111116] to-[#0a0a0f]">
         <div className="flex h-96 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <p className="text-lg text-slate-300">暂无推荐电影</p>
-            <p className="text-sm text-slate-500">数据库中没有找到电影数据</p>
+            <p className="text-lg text-white/60">暂无推荐电影</p>
+            <p className="text-sm text-white/40">数据库中没有找到电影数据</p>
           </div>
         </div>
       </section>
@@ -110,7 +110,7 @@ export function HeroSection() {
   }
 
   return (
-    <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl">
+    <section className="relative mx-auto mb-12 mt-6 max-w-6xl overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-[#0a0a0f] via-[#111116] to-[#0a0a0f] shadow-2xl shadow-black/50">
       {/* 背景图片 */}
       <div className="absolute inset-0 overflow-hidden">
         <AnimatePresence mode="wait">
@@ -127,8 +127,14 @@ export function HeroSection() {
             />
           )}
         </AnimatePresence>
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/60 to-transparent" />
+        
+        {/* 渐变遮罩层 */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/80 to-[#0a0a0f]/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0f] via-[#0a0a0f]/60 to-transparent" />
+        
+        {/* 顶部红色光晕 */}
+        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-red-600/10 blur-[80px]" />
+        <div className="absolute -top-20 left-1/3 h-48 w-48 rounded-full bg-orange-500/5 blur-[60px]" />
       </div>
 
       {/* 内容区域 */}
@@ -143,17 +149,17 @@ export function HeroSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.4 }}
-                className="space-y-4"
+                className="space-y-5"
               >
                 {/* 标签 */}
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-300">
                     今日 AI 精选 #{currentIndex + 1}
-                    <span className="ml-2 rounded-full bg-emerald-500/80 px-1.5 py-0.5 text-[10px] text-emerald-950">
+                    <span className="ml-2 rounded-full bg-red-600/80 px-1.5 py-0.5 text-[10px] text-white">
                       Daily Pick
                     </span>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 bg-slate-800/40 px-3 py-1 text-xs text-slate-300">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/60">
                     <Calendar className="h-3 w-3" />
                     {currentMovie.releaseDate.split("-")[0]}
                   </span>
@@ -165,33 +171,33 @@ export function HeroSection() {
                 </h2>
 
                 {/* 描述 */}
-                <p className="line-clamp-3 text-base text-slate-200/90 sm:text-lg">
+                <p className="line-clamp-3 text-base text-white/70 sm:text-lg leading-relaxed">
                   {currentMovie.synopsis}
                 </p>
 
                 {/* 元数据 */}
                 <div className="flex flex-wrap gap-3">
-                  <div className="flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-800/40 px-4 py-2">
-                    <Star className="h-4 w-4 text-amber-400" />
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm">
+                    <Star className="h-4 w-4 text-yellow-400" />
                     <span className="text-sm font-medium text-white">
                       {currentMovie.rating.toFixed(1)}
-                      <span className="ml-1 text-xs text-slate-400">/10</span>
+                      <span className="ml-1 text-xs text-white/40">/10</span>
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-800/40 px-4 py-2">
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm">
                     <Users className="h-4 w-4 text-blue-400" />
                     <span className="text-sm font-medium text-white">
                       {formatBoxOffice(currentMovie.boxOffice)}
-                      <span className="ml-1 text-xs text-slate-400">USD</span>
+                      <span className="ml-1 text-xs text-white/40">USD</span>
                     </span>
                   </div>
-                  <div className="rounded-full border border-slate-700/60 bg-slate-800/40 px-4 py-2">
-                    <span className="text-sm text-slate-300">
+                  <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm">
+                    <span className="text-sm text-white/60">
                       导演：<span className="font-medium text-white">{currentMovie.director}</span>
                     </span>
                   </div>
-                  <div className="rounded-full border border-slate-700/60 bg-slate-800/40 px-4 py-2">
-                    <span className="text-sm text-slate-300">
+                  <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm">
+                    <span className="text-sm text-white/60">
                       类型：<span className="font-medium text-white">{currentMovie.genres.join(" / ")}</span>
                     </span>
                   </div>
@@ -207,19 +213,19 @@ export function HeroSection() {
             transition={{ delay: 0.2, duration: 0.4 }}
             className="mt-8 flex flex-wrap items-center gap-3"
           >
-            <Button className="rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-sm font-medium hover:from-emerald-600 hover:to-emerald-700">
+            <Button className="rounded-full bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-red-600 transition-all">
               <Play className="mr-2 h-4 w-4" />
               立即观看
             </Button>
             <Button
               variant="outline"
-              className="rounded-full border-slate-600/70 bg-slate-800/40 px-6 py-3 text-sm text-slate-100 hover:bg-slate-700/60"
+              className="rounded-full border-white/10 bg-white/5 px-6 py-3 text-sm text-white hover:bg-white/10 transition-all backdrop-blur-sm"
             >
               查看详情
             </Button>
             <Button
               variant="ghost"
-              className="rounded-full border-slate-700/60 bg-slate-800/30 px-6 py-3 text-sm text-slate-300 hover:bg-slate-700/50"
+              className="rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-all"
               onClick={nextSlide}
             >
               换一部推荐
@@ -237,8 +243,8 @@ export function HeroSection() {
                 onClick={() => goToSlide(index)}
                 className={`h-2 rounded-full transition-all ${
                   index === currentIndex
-                    ? "w-8 bg-emerald-500"
-                    : "w-2 bg-slate-700/60 hover:bg-slate-600"
+                    ? "w-8 bg-gradient-to-r from-red-600 to-red-500"
+                    : "w-2 bg-white/20 hover:bg-white/30"
                 }`}
                 aria-label={`切换到第 ${index + 1} 个推荐`}
               />
@@ -251,7 +257,7 @@ export function HeroSection() {
               variant="outline"
               size="icon"
               onClick={prevSlide}
-              className="h-10 w-10 rounded-full border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700/60"
+              className="h-10 w-10 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 transition-all backdrop-blur-sm"
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -259,7 +265,7 @@ export function HeroSection() {
               variant="outline"
               size="icon"
               onClick={nextSlide}
-              className="h-10 w-10 rounded-full border-slate-700/60 bg-slate-800/40 text-slate-300 hover:bg-slate-700/60"
+              className="h-10 w-10 rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 transition-all backdrop-blur-sm"
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
@@ -267,17 +273,17 @@ export function HeroSection() {
 
           {/* 当前进度 */}
           <div className="text-right">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-white/40">
               {currentIndex + 1} / {dailyPicks.length}
             </p>
-            <p className="mt-1 text-sm text-slate-300">每日 AI 精选轮播</p>
-            <p className="mt-1 text-xs text-slate-500">基于4,803部电影数据库</p>
+            <p className="mt-1 text-sm text-white/60">每日 AI 精选轮播</p>
+            <p className="mt-1 text-xs text-white/30">基于4,803部电影数据库</p>
           </div>
         </div>
       </div>
 
       {/* 底部渐变 */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-950 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0a0a0f] to-transparent" />
     </section>
   );
 }

@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { getMovieDetail, MovieDetail } from "@/lib/api/movie";
+import { useAuth } from "@/contexts/AuthContext";
+import { addWatchHistory } from "@/lib/api/history";
+import FavoriteButton from "@/components/favorite-button";
 
 interface MoviePageProps {
   params: Promise<{ id: string }>;
 }
 
 export default function MovieDetailPage({ params }: MoviePageProps) {
+  const { user, isAuthenticated } = useAuth();
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +24,7 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
     });
   }, [params]);
 
+  // 加载电影详情
   useEffect(() => {
     if (!movieId) return;
 
@@ -37,6 +42,16 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
         setIsLoading(false);
       });
   }, [movieId]);
+
+  // 记录浏览历史
+  useEffect(() => {
+    if (!movieId || !isAuthenticated || !user) return;
+
+    addWatchHistory(movieId, user.id)
+      .catch((err) => {
+        console.error("记录浏览历史失败:", err);
+      });
+  }, [movieId, isAuthenticated, user]);
 
   if (isLoading) {
     return (
@@ -145,15 +160,15 @@ export default function MovieDetailPage({ params }: MoviePageProps) {
                 )}
               </div>
               
-              {/* 收藏按钮 */}
-              <button className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-800/50 py-3 text-white transition-colors hover:border-emerald-500 hover:bg-slate-800">
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  收藏这部电影
-                </span>
-              </button>
+              {/* 收藏按钮 - 集成 FavoriteButton */}
+              <div className="mt-4 flex items-center gap-3">
+                <FavoriteButton 
+                  movieId={movieId!} 
+                  size="lg" 
+                  showText={true}
+                  className="flex-1"
+                />
+              </div>
             </div>
           </div>
 

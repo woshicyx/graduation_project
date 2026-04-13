@@ -48,7 +48,10 @@ const config: Config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        border: "hsl(var(--border))",
+      },
+      boxShadow: {
+        "red-glow": "0 0 20px rgba(229, 9, 20, 0.3), 0 4px 6px rgba(0, 0, 0, 0.3)",
+        "orange-glow": "0 0 20px rgba(245, 166, 35, 0.3), 0 4px 6px rgba(0, 0, 0, 0.3)",
       },
     },
   },

@@ -93,11 +93,11 @@ export function MovieCarousel({
         <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
           <div>
             <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+              <div className={`rounded-xl p-2.5 ${variant === "boxOffice" ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/20" : "bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20"}`}>
                 {variant === "boxOffice" ? (
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                  <DollarSign className="h-5 w-5 text-red-400" />
                 ) : (
-                  <TrendingUp className="h-5 w-5 text-amber-400" />
+                  <TrendingUp className="h-5 w-5 text-orange-400" />
                 )}
               </div>
               <div>
@@ -105,7 +105,7 @@ export function MovieCarousel({
                   {title}
                 </h3>
                 {subtitle && (
-                  <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                  <p className="mt-1 text-sm text-white/50 sm:text-base">
                     {subtitle}
                   </p>
                 )}
@@ -113,10 +113,10 @@ export function MovieCarousel({
             </div>
           </div>
         </div>
-        <div className="flex h-64 items-center justify-center rounded-lg bg-slate-900/50">
+        <div className="flex h-64 items-center justify-center rounded-2xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/5">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-            <p className="text-sm text-slate-400">正在加载电影数据...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+            <p className="text-sm text-white/50">正在加载电影数据...</p>
           </div>
         </div>
       </section>
@@ -130,11 +130,11 @@ export function MovieCarousel({
         <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
           <div>
             <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+              <div className={`rounded-xl p-2.5 ${variant === "boxOffice" ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/20" : "bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20"}`}>
                 {variant === "boxOffice" ? (
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                  <DollarSign className="h-5 w-5 text-red-400" />
                 ) : (
-                  <TrendingUp className="h-5 w-5 text-amber-400" />
+                  <TrendingUp className="h-5 w-5 text-orange-400" />
                 )}
               </div>
               <div>
@@ -142,7 +142,7 @@ export function MovieCarousel({
                   {title}
                 </h3>
                 {subtitle && (
-                  <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                  <p className="mt-1 text-sm text-white/50 sm:text-base">
                     {subtitle}
                   </p>
                 )}
@@ -150,10 +150,10 @@ export function MovieCarousel({
             </div>
           </div>
         </div>
-        <div className="flex h-64 items-center justify-center rounded-lg bg-rose-900/20 border border-rose-700/30">
+        <div className="flex h-64 items-center justify-center rounded-2xl bg-gradient-to-b from-red-500/5 to-transparent border border-red-500/20">
           <div className="flex flex-col items-center gap-3">
-            <p className="text-rose-400">加载电影数据失败</p>
-            <p className="text-sm text-slate-400">请检查后端API连接</p>
+            <p className="text-red-400">加载电影数据失败</p>
+            <p className="text-sm text-white/50">请检查后端API连接</p>
           </div>
         </div>
       </section>
@@ -167,11 +167,11 @@ export function MovieCarousel({
         <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
           <div>
             <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+              <div className={`rounded-xl p-2.5 ${variant === "boxOffice" ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/20" : "bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20"}`}>
                 {variant === "boxOffice" ? (
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                  <DollarSign className="h-5 w-5 text-red-400" />
                 ) : (
-                  <TrendingUp className="h-5 w-5 text-amber-400" />
+                  <TrendingUp className="h-5 w-5 text-orange-400" />
                 )}
               </div>
               <div>
@@ -179,7 +179,7 @@ export function MovieCarousel({
                   {title}
                 </h3>
                 {subtitle && (
-                  <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                  <p className="mt-1 text-sm text-white/50 sm:text-base">
                     {subtitle}
                   </p>
                 )}
@@ -187,8 +187,8 @@ export function MovieCarousel({
             </div>
           </div>
         </div>
-        <div className="flex h-64 items-center justify-center rounded-lg bg-slate-900/50">
-          <p className="text-slate-400">暂无电影数据</p>
+        <div className="flex h-64 items-center justify-center rounded-2xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/5">
+          <p className="text-white/50">暂无电影数据</p>
         </div>
       </section>
     );
@@ -204,11 +204,11 @@ export function MovieCarousel({
       <div className="mb-6 flex flex-col items-start justify-between gap-4 px-2 sm:flex-row sm:items-center sm:px-0">
         <div>
           <div className="flex items-center gap-3">
-            <div className={`rounded-lg p-2 ${variant === "boxOffice" ? "bg-emerald-500/20" : "bg-amber-500/20"}`}>
+            <div className={`rounded-xl p-2.5 ${variant === "boxOffice" ? "bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/20" : "bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20"}`}>
               {variant === "boxOffice" ? (
-                <DollarSign className="h-5 w-5 text-emerald-400" />
+                <DollarSign className="h-5 w-5 text-red-400" />
               ) : (
-                <TrendingUp className="h-5 w-5 text-amber-400" />
+                <TrendingUp className="h-5 w-5 text-orange-400" />
               )}
             </div>
             <div>
@@ -216,7 +216,7 @@ export function MovieCarousel({
                 {title}
               </h3>
               {subtitle && (
-                <p className="mt-1 text-sm text-slate-400 sm:text-base">
+                <p className="mt-1 text-sm text-white/50 sm:text-base">
                   {subtitle}
                 </p>
               )}
@@ -224,14 +224,14 @@ export function MovieCarousel({
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-white/40">
             共 {movies.length} 部电影
           </span>
           <div className="flex gap-1">
-            <div className="h-1 w-6 rounded-full bg-emerald-500/60" />
-            <div className="h-1 w-2 rounded-full bg-slate-700/60" />
-            <div className="h-1 w-2 rounded-full bg-slate-700/60" />
+            <div className="h-1 w-6 rounded-full bg-gradient-to-r from-red-600 to-red-500" />
+            <div className="h-1 w-2 rounded-full bg-white/10" />
+            <div className="h-1 w-2 rounded-full bg-white/10" />
           </div>
         </div>
       </div>
@@ -256,61 +256,64 @@ export function MovieCarousel({
                   {/* 收藏按钮 */}
                   <button
                     onClick={() => toggleFavorite(movie.id)}
-                    className="absolute right-3 top-3 z-10 rounded-full bg-slate-900/80 p-2 backdrop-blur transition-all hover:scale-110 hover:bg-rose-500/80"
+                    className="absolute right-3 top-3 z-10 rounded-full bg-black/60 backdrop-blur-sm p-2 transition-all hover:scale-110 hover:bg-red-500/80 border border-white/10"
                     aria-label={favorites.has(movie.id) ? "取消收藏" : "收藏"}
                   >
                     <Heart
                       className={`h-4 w-4 transition-colors ${
                         favorites.has(movie.id)
-                          ? "fill-rose-500 text-rose-500"
-                          : "text-slate-300"
+                          ? "fill-red-500 text-red-500"
+                          : "text-white/80"
                       }`}
                     />
                   </button>
 
                   <Link href={`/movies/${movie.id}`}>
-                    <Card className="overflow-hidden border-slate-700/60 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/90 transition-all duration-300 group-hover:border-slate-600/80 group-hover:shadow-2xl cursor-pointer">
+                    <Card className="overflow-hidden border border-white/5 bg-gradient-to-b from-white/[0.05] via-white/[0.03] to-transparent transition-all duration-300 group-hover:border-red-500/50 group-hover:shadow-lg group-hover:shadow-red-500/10 cursor-pointer">
                       {/* 海报区域 */}
-                      <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-900/60">
+                      <div className="relative aspect-[2/3] w-full overflow-hidden">
                         <img
                           src={movie.posterUrl}
                           alt={movie.title}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                         
+                        {/* 渐变遮罩 */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        
                         {/* 评分标签 */}
                         {variant === "rating" && (
-                          <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-amber-500/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg">
-                            <Star className="mr-1.5 h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                          <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-red-600/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm">
+                            <Star className="mr-1.5 h-3.5 w-3.5 fill-current text-white" />
                             {movie.rating.toFixed(1)}
                           </div>
                         )}
                         
                         {/* 票房标签 */}
                         {variant === "boxOffice" && (
-                          <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-lg">
+                          <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-gradient-to-r from-orange-500 to-yellow-500 px-3 py-1.5 text-xs font-bold text-black shadow-lg backdrop-blur-sm">
                             <DollarSign className="mr-1.5 h-3.5 w-3.5" />
                             {formatBoxOfficeShort(movie.boxOffice)}
                           </div>
                         )}
                         
                         {/* 悬停遮罩 */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                         
                         {/* 播放按钮 */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:opacity-100">
-                          <Button className="rounded-full bg-white/20 backdrop-blur hover:bg-white/30">
-                            <Play className="h-6 w-6 text-white" />
+                          <Button className="rounded-full bg-red-600/90 backdrop-blur-sm hover:bg-red-500 shadow-lg shadow-red-600/50">
+                            <Play className="h-6 w-6 text-white ml-0.5" />
                           </Button>
                         </div>
                       </div>
 
                       {/* 电影信息 */}
                       <CardHeader className="space-y-2 pb-3 pt-4">
-                        <CardTitle className="line-clamp-1 text-base font-semibold text-white group-hover:text-emerald-300">
+                        <CardTitle className="line-clamp-1 text-base font-semibold text-white group-hover:text-red-300 transition-colors">
                           {movie.title}
                         </CardTitle>
-                        <CardDescription className="line-clamp-1 text-sm text-slate-300">
+                        <CardDescription className="line-clamp-1 text-sm text-white/50">
                           {movie.genres.join(" · ")}
                         </CardDescription>
                       </CardHeader>
@@ -319,8 +322,8 @@ export function MovieCarousel({
                         <div className="space-y-3">
                           {/* 导演信息 */}
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400">导演：</span>
-                            <span className="text-xs font-medium text-slate-300">
+                            <span className="text-xs text-white/40">导演：</span>
+                            <span className="text-xs font-medium text-white/70">
                               {movie.director}
                             </span>
                           </div>
@@ -329,15 +332,15 @@ export function MovieCarousel({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="flex items-center gap-1">
-                                <Star className="h-3 w-3 text-amber-400" />
+                                <Star className="h-3 w-3 text-yellow-400" />
                                 <span className="text-xs font-medium text-white">
                                   {movie.rating.toFixed(1)}
                                 </span>
                               </div>
-                              <span className="text-xs text-slate-500">|</span>
+                              <span className="text-xs text-white/20">|</span>
                               <div className="flex items-center gap-1">
                                 <TrendingUp className="h-3 w-3 text-blue-400" />
-                                <span className="text-xs font-medium text-white">
+                                <span className="text-xs font-medium text-white/70">
                                   {movie.popularity.toFixed(1)}
                                 </span>
                               </div>
@@ -346,11 +349,11 @@ export function MovieCarousel({
                             {/* 详细数据 */}
                             <div className="text-right">
                               {variant === "boxOffice" ? (
-                                <p className="text-xs font-semibold text-emerald-300">
+                                <p className="text-xs font-semibold text-red-300">
                                   {formatBoxOffice(movie.boxOffice)}
                                 </p>
                               ) : (
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-white/40">
                                   上映：{movie.releaseDate.split("-")[0]}
                                 </p>
                               )}
@@ -366,8 +369,8 @@ export function MovieCarousel({
           </CarouselContent>
           
           {/* 导航按钮 */}
-          <CarouselPrevious className="left-2 h-10 w-10 border-slate-700/60 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80 hover:text-white" />
-          <CarouselNext className="right-2 h-10 w-10 border-slate-700/60 bg-slate-900/80 text-slate-300 hover:bg-slate-800/80 hover:text-white" />
+          <CarouselPrevious className="left-2 h-10 w-10 rounded-xl border border-white/10 bg-black/60 backdrop-blur-sm text-white hover:bg-white/10 hover:text-white transition-all" />
+          <CarouselNext className="right-2 h-10 w-10 rounded-xl border border-white/10 bg-black/60 backdrop-blur-sm text-white hover:bg-white/10 hover:text-white transition-all" />
         </Carousel>
       </div>
 
@@ -378,8 +381,8 @@ export function MovieCarousel({
             key={index}
             className={`h-1 rounded-full transition-all ${
               index === 0
-                ? "w-8 bg-emerald-500"
-                : "w-2 bg-slate-700/60"
+                ? "w-8 bg-gradient-to-r from-red-600 to-red-500"
+                : "w-2 bg-white/10"
             }`}
           />
         ))}
