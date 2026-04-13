@@ -2,7 +2,7 @@
  * API客户端配置
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8008';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8015';
 
 export interface ApiResponse<T> {
   data: T;

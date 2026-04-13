@@ -10,6 +10,13 @@ import json
 import os
 from typing import Optional, List, Dict, Any, Tuple
 
+# 尝试加载 .env 配置
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from app.core.db import Database
 from app.core.vector import get_qdrant_client
 
@@ -19,7 +26,6 @@ COLLECTION_NAME = "movie_semantic"
 # Embedding 配置 - 优先使用 ZhipuAI
 # ZhipuAI embedding-2: 1024维, 免费额度充足
 # ZhipuAI embedding-2-flash: 1024维, 免费版
-# OpenAI text-embedding-3-small: 1536维
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "embedding-2")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))
 
@@ -64,39 +70,75 @@ def _parse_json_field(value: Any, extract_name: bool = False) -> List[str]:
         return []
 
 
-def build_movie_rag_text(movie: Dict[str, Any]) -> str:
+def build_movie_rag_text(movie: Dict[str, Any], target_lang: str = "zh") -> str:
     """
-    构建电影的RAG文本描述
+    构建电影的RAG文本描述（Phase 2 优化版）
+    
+    设计原则："卡住两头，放开中间"
+    - 输入头：过滤条件统一为中文标准
+    - 中间检索：保留英文关键词 + 中文上下文，提升跨语言匹配
+    - 输出头：后续 Prompt 控制回复语言
     
     Args:
         movie: 电影数据字典
+        target_lang: 目标语言（默认 zh，用于标签语言，保留英文关键词）
         
     Returns:
-        格式化后的RAG文本
+        格式化后的RAG文本（中英文混合，中文上下文 + 英文原始关键词）
     """
+    # 导入翻译服务
+    try:
+        from app.services.translation_service import translate_keywords, _is_chinese
+    except ImportError:
+        _is_chinese = lambda x: any('\u4e00' <= c <= '\u9fff' for c in x)
+        translate_keywords = None
+    
     # 解析 genres（提取 name 字段）
     genres_list = _parse_json_field(movie.get("genres"), extract_name=True)
-    genres = ", ".join(genres_list)
+    genres = "、".join(genres_list) if genres_list else ""
     
-    # 解析 keywords（提取 name 字段）
+    # 解析 keywords（保留原始英文 + 添加中文标注）
     keywords_list = _parse_json_field(movie.get("keywords"), extract_name=True)
-    keywords = ", ".join(keywords_list)
+    # 英文关键词保持原样，但在前面加中文标注提升跨语言匹配
+    keywords_zh = "、".join(keywords_list) if keywords_list else ""
     
-    # 构建文本
+    # 字段值
+    title = movie.get('title', '')
+    original_title = movie.get('original_title', '')
+    overview = movie.get('overview', '')
+    tagline = movie.get('tagline', '')
+    director = movie.get('director', '')
+    original_language = movie.get('original_language', '')
+    
+    # 构建 RAG 文本（Phase 2 优化版）
+    # 使用【中文标签: 原始值】格式，明确告诉 Embedding 这是什么字段
     parts = [
-        f"Title: {movie.get('title', '')}",
-        f"Original Title: {movie.get('original_title', '')}",
-        f"Overview: {movie.get('overview', '')}",
-        f"Tagline: {movie.get('tagline', '')}",
-        f"Genres: {genres}" if genres else None,
-        f"Keywords: {keywords}" if keywords else None,
-        f"Director: {movie.get('director', '')}" if movie.get('director') else None,
-        f"Language: {movie.get('original_language', '')}" if movie.get('original_language') else None,
+        f"【电影标题 Title】: {title}" if title else None,
+        f"【原名 Original Title】: {original_title}" if original_title and original_title != title else None,
+        f"【剧情简介 Overview】: {overview}" if overview else None,
+        f"【电影宣传语 Tagline】: {tagline}" if tagline else None,
+        f"【电影类型 Genres】: {genres}" if genres else None,
+        f"【英文关键词 Keywords】: {keywords_zh}" if keywords_zh else None,  # 明确标注为英文关键词
+        f"【导演 Director】: {director}" if director else None,
+        f"【原语言 Language】: {original_language}" if original_language else None,
     ]
     
     # 过滤空行并组合
     rag_text = "\n".join(part for part in parts if part)
     return rag_text
+
+
+def build_movie_rag_text_zh(movie: Dict[str, Any]) -> str:
+    """
+    构建电影的RAG文本描述（统一为中文）
+    
+    Args:
+        movie: 电影数据字典
+        
+    Returns:
+        格式化后的中文RAG文本
+    """
+    return build_movie_rag_text(movie, target_lang="zh")
 
 
 def embed_text(text: str) -> Optional[List[float]]:
@@ -237,12 +279,13 @@ def ensure_collection_exists(force_recreate: bool = False) -> bool:
         return False
 
 
-def index_movie(movie: Dict[str, Any]) -> Tuple[bool, str]:
+def index_movie(movie: Dict[str, Any], target_lang: str = "zh") -> Tuple[bool, str]:
     """
     将单部电影索引到向量数据库
     
     Args:
         movie: 电影数据字典
+        target_lang: 目标语言，默认中文
         
     Returns:
         (是否成功, 错误信息)
@@ -254,8 +297,8 @@ def index_movie(movie: Dict[str, Any]) -> Tuple[bool, str]:
     try:
         client = get_qdrant_client()
         
-        # 构建 RAG 文本
-        rag_text = build_movie_rag_text(movie)
+        # 构建 RAG 文本（统一为中文）
+        rag_text = build_movie_rag_text(movie, target_lang=target_lang)
         if not rag_text.strip():
             return False, "RAG文本为空"
         
@@ -268,18 +311,22 @@ def index_movie(movie: Dict[str, Any]) -> Tuple[bool, str]:
         if len(vector) != EMBEDDING_DIMENSION:
             print(f"警告: 向量维度 {len(vector)} 与配置不匹配 {EMBEDDING_DIMENSION}")
         
-        # 解析 payload 数据
+        # 解析 payload 数据（保留原始数据）
         genres = _parse_json_field(movie.get("genres"), extract_name=True)
         keywords = _parse_json_field(movie.get("keywords"), extract_name=True)
         
         payload = {
             "movie_id": movie_id,
             "title": movie.get("title", ""),
+            "original_title": movie.get("original_title", ""),
+            "overview": movie.get("overview", ""),
             "genres": genres,
             "keywords": keywords,
             "vote_average": movie.get("vote_average", 0) or 0,
             "popularity": movie.get("popularity", 0) or 0,
             "director": movie.get("director", "") or "",
+            "language": movie.get("original_language", "") or "",
+            "language_version": target_lang,
         }
         
         # Upsert 到 Qdrant
@@ -418,25 +465,36 @@ def retrieve_movies(query: str, limit: int = 10) -> List[Dict[str, Any]]:
             print(f"Collection {COLLECTION_NAME} 不存在，请先运行索引脚本")
             return []
         
-        # 搜索
-        results = client.search(
-            collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
-            limit=limit,
-            with_payload=True
-        )
-        
-        # 提取结果
-        movies = []
-        for hit in results:
-            movie_info = {
-                "movie_id": hit.payload["movie_id"],
-                "score": hit.score,
-                "title": hit.payload.get("title", ""),
-                "genres": hit.payload.get("genres", []),
-                "director": hit.payload.get("director", ""),
-            }
-            movies.append(movie_info)
+        # 搜索 - 使用新版本API (qdrant-client >= 1.7.0)
+        # 直接传入向量进行搜索（不使用using参数，因为是默认向量）
+        try:
+            results = client.query_points(
+                collection_name=COLLECTION_NAME,
+                query=query_vector,  # 直接传入向量列表
+                limit=limit,
+                with_payload=True,
+                with_vectors=False,
+            )
+            
+            # 提取结果
+            movies = []
+            for hit in results.points:
+                movie_info = {
+                    "movie_id": hit.payload.get("movie_id", hit.id) if hit.payload else hit.id,
+                    "score": hit.score,
+                    "title": hit.payload.get("title", "") if hit.payload else "",
+                    "genres": hit.payload.get("genres", []) if hit.payload else [],
+                    "director": hit.payload.get("director", "") if hit.payload else "",
+                }
+                movies.append(movie_info)
+            
+            return movies
+            
+        except Exception as e:
+            print(f"检索失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
         
         return movies
         
@@ -484,6 +542,13 @@ def hybrid_search(
     genre: Optional[str] = None,
     director: Optional[str] = None,
     rating_min: Optional[float] = None,
+    rating_max: Optional[float] = None,
+    year_min: Optional[int] = None,
+    year_max: Optional[int] = None,
+    runtime_min: Optional[int] = None,
+    runtime_max: Optional[int] = None,
+    language: Optional[str] = None,
+    country: Optional[str] = None,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
@@ -496,13 +561,20 @@ def hybrid_search(
         genre: 类型过滤
         director: 导演过滤
         rating_min: 最低评分
+        rating_max: 最高评分
+        year_min: 最早年份
+        year_max: 最晚年份
+        runtime_min: 最短时长（分钟）
+        runtime_max: 最长时长（分钟）
+        language: 语言
+        country: 国家/地区
         limit: 返回数量
         
     Returns:
         混合评分后的电影列表
     """
     # 1. 向量语义召回
-    semantic_results = retrieve_movies(query, limit=limit * 3)
+    semantic_results = retrieve_movies(query, limit=limit * 5)
     
     if not semantic_results:
         return []
@@ -519,6 +591,17 @@ def hybrid_search(
     for movie in movies:
         movie_id = movie["id"]
         
+        # 提取电影年份
+        movie_year = None
+        if movie.get("release_date"):
+            if hasattr(movie["release_date"], 'year'):
+                movie_year = movie["release_date"].year
+            elif isinstance(movie["release_date"], str) and len(movie["release_date"]) >= 4:
+                try:
+                    movie_year = int(movie["release_date"][:4])
+                except:
+                    pass
+        
         # SQL 过滤
         if genre:
             genres_str = str(movie.get("genres", []))
@@ -530,8 +613,28 @@ def hybrid_search(
             if director.lower() not in director_str.lower():
                 continue
         
-        if rating_min and movie.get("vote_average", 0) < rating_min:
+        if rating_min is not None and (movie.get("vote_average", 0) or 0) < rating_min:
             continue
+        
+        if rating_max is not None and (movie.get("vote_average", 0) or 0) > rating_max:
+            continue
+        
+        if year_min is not None and (movie_year or 0) < year_min:
+            continue
+        
+        if year_max is not None and (movie_year or 9999) > year_max:
+            continue
+        
+        if runtime_min is not None and (movie.get("runtime", 0) or 0) < runtime_min:
+            continue
+        
+        if runtime_max is not None and (movie.get("runtime", 0) or 0) > runtime_max:
+            continue
+        
+        if language:
+            lang_str = str(movie.get("original_language", "")).lower()
+            if language.lower() not in lang_str and lang_str not in language.lower():
+                continue
         
         # 向量相似度
         vector_score = score_map.get(movie_id, 0)
@@ -554,3 +657,64 @@ def hybrid_search(
     results.sort(key=lambda x: x["final_score"], reverse=True)
     
     return results[:limit]
+
+
+def enhanced_hybrid_search(
+    query: str,
+    limit: int = 10
+) -> Dict[str, Any]:
+    """
+    增强混合搜索：先使用 LLM 解析需求，再向量检索
+    
+    Args:
+        query: 用户自然语言查询
+        limit: 返回数量
+        
+    Returns:
+        {
+            "semantic_query": "用于语义检索的核心描述",
+            "filters": {...},  # 提取的过滤条件
+            "movies": [...],   # 搜索结果
+            "llm_parsing_success": True/False,
+        }
+    """
+    # 1. 导入需求提取器
+    try:
+        from app.services.requirement_extractor import extract_requirements
+        requirements = extract_requirements(query)
+        llm_success = True
+    except Exception as e:
+        print(f"需求提取失败，使用原始查询: {e}")
+        requirements = {
+            "semantic_query": query,
+            "filters": {}
+        }
+        llm_success = False
+    
+    # 2. 提取语义查询和过滤条件
+    semantic_query = requirements.get("semantic_query", query)
+    filters = requirements.get("filters", {})
+    
+    # 3. 调用混合搜索
+    movies = hybrid_search(
+        query=semantic_query,
+        genre=filters.get("genre"),
+        director=filters.get("director"),
+        rating_min=filters.get("rating_min"),
+        rating_max=filters.get("rating_max"),
+        year_min=filters.get("year_min"),
+        year_max=filters.get("year_max"),
+        runtime_min=filters.get("runtime_min"),
+        runtime_max=filters.get("runtime_max"),
+        language=filters.get("language"),
+        country=filters.get("country"),
+        limit=limit
+    )
+    
+    # 4. 返回结果
+    return {
+        "semantic_query": semantic_query,
+        "filters": filters,
+        "movies": movies,
+        "llm_parsing_success": llm_success,
+    }

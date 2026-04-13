@@ -1,15 +1,47 @@
 """
 AI 推荐 API - 基于 RAG 的电影推荐
+
+集成 LLM 需求解析 + 向量检索 + 混合排序
 """
 from __future__ import annotations
 
 import time
+import json
 from fastapi import APIRouter
 
 from app import schemas
-from app.services.rag_service import hybrid_search, retrieve_movies, fetch_movies_by_ids
+from app.services.rag_service_fixed import (
+    hybrid_search,
+    retrieve_movies,
+    fetch_movies_by_ids,
+    enhanced_hybrid_search,
+)
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+def build_recommend_items(movies: list, limit: int = 10) -> list:
+    """构建推荐结果列表"""
+    items = []
+    for movie in movies[:limit]:
+        movie_id = movie.get("id")
+        
+        # 解析 genres
+        genres = movie.get("genres", [])
+        if isinstance(genres, str):
+            try:
+                genres = json.loads(genres)
+            except:
+                genres = []
+        
+        items.append(schemas.RecommendItem(
+            movie_id=movie_id,
+            title=movie.get("title", "未知电影"),
+            relevance_score=round(movie.get("final_score", movie.get("score", 0)), 4),
+            reason=None  # 暂不生成推荐理由
+        ))
+    
+    return items
 
 
 @router.post(
@@ -19,71 +51,42 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 )
 async def recommend_movies(payload: schemas.RecommendRequest) -> schemas.RecommendResponse:
     """
-    基于 RAG 的电影推荐接口
+    基于增强 RAG 的电影推荐接口
     
     流程:
-    1. 对用户查询进行 embedding
-    2. 在 Qdrant 中进行语义召回
-    3. 从 PostgreSQL 获取电影详情
-    4. 返回推荐列表及相似度分数
+    1. LLM 解析用户查询，提取硬性过滤条件
+    2. 使用语义核心进行向量检索
+    3. 应用硬性过滤条件筛选结果
+    4. 混合排序（向量分 + 评分 + 热度）
+    5. 返回推荐列表及相似度分数
     """
     start_time = time.time()
     
     # 获取推荐数量
-    limit = min(payload.max_results, 20)  # 最多返回20部
+    limit = min(payload.max_results, 20)
     
     try:
-        # 语义召回（不调用 LLM）
-        semantic_results = retrieve_movies(payload.query, limit=limit * 2)
+        # 使用增强混合搜索（包含 LLM 需求解析）
+        result = enhanced_hybrid_search(
+            query=payload.query,
+            limit=limit
+        )
         
-        if not semantic_results:
-            return schemas.RecommendResponse(
-                query=payload.query,
-                items=[],
-                total_time_ms=int((time.time() - start_time) * 1000)
-            )
-        
-        # 获取电影ID
-        movie_ids = [r["movie_id"] for r in semantic_results]
-        
-        # 从数据库获取完整信息
-        movies = fetch_movies_by_ids(movie_ids)
-        
-        # 构建 ID 到分数的映射
-        score_map = {r["movie_id"]: r["score"] for r in semantic_results}
+        movies = result.get("movies", [])
+        llm_success = result.get("llm_parsing_success", False)
+        semantic_query = result.get("semantic_query", payload.query)
+        filters = result.get("filters", {})
         
         # 构建推荐结果
-        items = []
-        for movie in movies:
-            movie_id = movie["id"]
-            score = score_map.get(movie_id, 0)
-            
-            # 解析 genres
-            genres = []
-            if movie.get("genres"):
-                if isinstance(movie["genres"], str):
-                    import json
-                    try:
-                        genres = json.loads(movie["genres"])
-                    except:
-                        genres = []
-                else:
-                    genres = movie["genres"]
-            
-            items.append(schemas.RecommendItem(
-                movie_id=movie_id,
-                title=movie.get("title", "未知电影"),
-                relevance_score=round(score, 4),
-                reason=None  # 暂不生成推荐理由，等召回稳定后再加
-            ))
-        
-        # 按相似度排序
-        items.sort(key=lambda x: x.relevance_score, reverse=True)
-        
-        # 限制数量
-        items = items[:limit]
+        items = build_recommend_items(movies, limit)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
+        
+        # 日志输出
+        if llm_success:
+            print(f"推荐查询: '{payload.query}' -> 语义: '{semantic_query}', 过滤: {filters}")
+        else:
+            print(f"推荐查询(降级): '{payload.query}'")
         
         return schemas.RecommendResponse(
             query=payload.query,
@@ -106,17 +109,26 @@ async def recommend_movies(payload: schemas.RecommendRequest) -> schemas.Recomme
 @router.get(
     "/search",
     response_model=schemas.RecommendResponse,
-    summary="AI 搜索：语义搜索电影",
+    summary="AI 搜索：语义搜索电影（支持硬性过滤）",
 )
 async def ai_search(
     q: str,
     genre: str = None,
     director: str = None,
     rating_min: float = None,
+    rating_max: float = None,
+    year_min: int = None,
+    year_max: int = None,
+    runtime_min: int = None,
+    runtime_max: int = None,
+    language: str = None,
     limit: int = 10
 ) -> schemas.RecommendResponse:
     """
     混合搜索接口（向量 + SQL 过滤）
+    
+    显式指定过滤条件时使用此接口。
+    如需从自然语言自动提取过滤条件，请使用 /recommend 接口。
     
     公式: final_score = 0.65*向量分 + 0.20*评分分 + 0.15*热度分
     """
@@ -128,29 +140,16 @@ async def ai_search(
             genre=genre,
             director=director,
             rating_min=rating_min,
+            rating_max=rating_max,
+            year_min=year_min,
+            year_max=year_max,
+            runtime_min=runtime_min,
+            runtime_max=runtime_max,
+            language=language,
             limit=limit
         )
         
-        items = []
-        for movie in results:
-            # 解析 genres
-            genres = []
-            if movie.get("genres"):
-                if isinstance(movie["genres"], str):
-                    import json
-                    try:
-                        genres = json.loads(movie["genres"])
-                    except:
-                        genres = []
-                else:
-                    genres = movie["genres"]
-            
-            items.append(schemas.RecommendItem(
-                movie_id=movie["id"],
-                title=movie.get("title", "未知电影"),
-                relevance_score=round(movie.get("final_score", 0), 4),
-                reason=None
-            ))
+        items = build_recommend_items(results, limit)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
         
@@ -170,3 +169,36 @@ async def ai_search(
             items=[],
             total_time_ms=int((time.time() - start_time) * 1000)
         )
+
+
+@router.post(
+    "/parse-query",
+    summary="解析查询：提取硬性过滤条件（调试用）",
+)
+async def parse_query(payload: schemas.RecommendRequest):
+    """
+    仅解析用户查询，提取硬性过滤条件，不执行搜索。
+    
+    用于调试 LLM 需求解析的效果。
+    """
+    try:
+        from app.services.requirement_extractor import extract_requirements
+        
+        result = extract_requirements(payload.query)
+        
+        return {
+            "query": payload.query,
+            "semantic_query": result.get("semantic_query", ""),
+            "filters": result.get("filters", {}),
+            "llm_parsing_success": True,
+        }
+        
+    except Exception as e:
+        print(f"查询解析失败: {e}")
+        return {
+            "query": payload.query,
+            "semantic_query": payload.query,
+            "filters": {},
+            "llm_parsing_success": False,
+            "error": str(e)
+        }

@@ -1,32 +1,82 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { recommendMovies, RecommendItem } from "@/lib/api/ai";
+import { getMovieDetail } from "@/lib/api/movie";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  movieId?: number;
+}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Array<{role: string; content: string}>>([
-    { role: "assistant", content: "你好！我是 MovieAI 智能助手。我可以根据你的喜好推荐电影，比如告诉我你想看什么类型的电影，或者描述一下你的心情，我来分析并给你推荐！" }
+  const [messages, setMessages] = useState<Message[]>([
+    { 
+      role: "assistant", 
+      content: "你好！我是 MovieAI 智能助手。我可以根据你的喜好推荐电影，比如告诉我你想看什么类型的电影，或者描述一下你的心情，我来分析并给你推荐！" 
+    }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 自动滚动到最新消息
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: "user", content: input };
+    const userMessage = { role: "user" as const, content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+    setError(null);
 
-    // 模拟 AI 响应
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: "感谢你的描述！基于你的需求（科幻+悬疑），我为你推荐：\n\n🎬 **《星际穿越》** - 诺兰执导，马修·麦康纳主演，关于时空穿越的感人故事\n\n🎬 **《盗梦空间》** - 诺兰经典，烧脑的多层梦境设定\n\n🎬 **《降临》** - 艾米·亚当斯主演的外星语言学科幻悬疑片\n\n这些电影都结合了科幻元素和悬疑情节，符合你的喜好。要了解其中任何一部的详细信息吗？"
+    try {
+      // 调用后端 AI 推荐 API
+      const result = await recommendMovies({
+        query: input,
+        max_results: 5,
+        include_reasons: true,
+      });
+
+      // 构建 AI 回复
+      if (result.items && result.items.length > 0) {
+        const recommendations = result.items.map((item: RecommendItem) => {
+          const reason = item.reason || "推荐观看";
+          return `🎬 **${item.title}** (相关性: ${(item.relevance_score * 100).toFixed(0)}%)\n   ${reason}`;
+        }).join('\n\n');
+
+        const aiResponse = `根据你的需求「${input}」，我为你推荐以下电影：\n\n${recommendations}\n\n点击电影标题可以查看详细信息，要了解其中任何一部吗？`;
+        
+        // 添加电影ID到消息中
+        setMessages(prev => [...prev, { 
+          role: "assistant", 
+          content: aiResponse,
+          movieId: result.items[0]?.movie_id
+        }]);
+      } else {
+        setMessages(prev => [...prev, { 
+          role: "assistant", 
+          content: "抱歉，我没有找到符合你需求的电影。你可以尝试用不同的方式描述，比如指定电影类型、导演或者心情。" 
+        }]);
+      }
+    } catch (err) {
+      console.error("AI推荐失败:", err);
+      setError("AI 推荐服务暂时不可用，请检查后端服务是否运行");
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "抱歉，AI 推荐服务暂时不可用。后端服务可能未启动或出现问题。请稍后再试，或直接使用搜索功能。" 
       }]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -89,7 +139,15 @@ export default function ChatPage() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
+
+        {/* 错误提示 */}
+        {error && (
+          <div className="mx-auto mb-4 w-full rounded-lg bg-red-500/20 border border-red-500/50 px-4 py-2 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
         {/* 输入区域 */}
         <form onSubmit={handleSubmit} className="mt-4">
@@ -100,6 +158,12 @@ export default function ChatPage() {
               placeholder="描述你想要的电影，比如：'我想看一部类似《盗梦空间》的烧脑悬疑片'"
               rows={2}
               className="w-full resize-none rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 pr-12 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
             />
             <button
               type="submit"
@@ -112,7 +176,7 @@ export default function ChatPage() {
             </button>
           </div>
           <p className="mt-2 text-center text-xs text-slate-500">
-            AI 推荐功能需要连接后端 RAG 服务，当前为演示模式
+            支持中文和英文描述，如："Nolan's sci-fi movies with high rating"
           </p>
         </form>
       </main>

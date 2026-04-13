@@ -146,3 +146,67 @@ def list_movies(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get(
+    "/semantic",
+    response_model=PaginatedMovies,
+    summary="向量语义搜索（测试用）",
+)
+def semantic_search(
+    q: str = Query(..., description="搜索查询"),
+    strategy: str = Query(default="auto", description="搜索策略: auto/filter_first/search_first/hybrid"),
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    """
+    向量语义搜索接口 - 使用修复后的 RAG 服务
+    
+    支持三种搜索策略：
+    - auto: 自动选择（根据过滤条件判断）
+    - filter_first: 先过滤后向量搜索（适用于有明确硬性条件的查询）
+    - search_first: 先向量搜索后过滤（适用于模糊/相关性优先的查询）
+    - hybrid: 扩大召回池后过滤（平衡策略）
+    """
+    try:
+        from app.services.rag_service_fixed import hybrid_search as vector_hybrid_search
+        
+        # 执行向量混合搜索
+        movies = vector_hybrid_search(
+            query=q,
+            strategy=strategy,
+            limit=limit
+        )
+        
+        # 转换为 PaginatedMovies 格式
+        items = []
+        for movie in movies:
+            items.append(MovieListItem(
+                id=movie.get("id"),
+                title=movie.get("title", "未知"),
+                poster_path=movie.get("poster_path"),
+                vote_average=movie.get("vote_average"),
+                popularity=movie.get("popularity"),
+                release_date=movie.get("release_date"),
+                genres=[],
+                director=movie.get("director")
+            ))
+        
+        return PaginatedMovies(
+            items=items,
+            total=len(items),
+            page=1,
+            page_size=limit,
+            total_pages=1
+        )
+        
+    except Exception as e:
+        print(f"语义搜索失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return PaginatedMovies(
+            items=[],
+            total=0,
+            page=1,
+            page_size=limit,
+            total_pages=0
+        )

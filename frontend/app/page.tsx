@@ -1,6 +1,26 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { getPopularMovies, MovieListItem } from "@/lib/api/movie";
 
 export default function Home() {
+  const [popularMovies, setPopularMovies] = useState<MovieListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // 获取热门电影
+    getPopularMovies(8)
+      .then((movies) => {
+        setPopularMovies(movies);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("获取热门电影失败:", err);
+        setIsLoading(false);
+      });
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900">
       {/* 背景装饰 */}
@@ -90,27 +110,73 @@ export default function Home() {
             </div>
           </section>
 
-          {/* 热门榜单占位 */}
+          {/* 热门榜单 */}
           <section className="mt-16">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-bold text-white">热门电影</h3>
-                <p className="text-sm text-slate-400">根据数据库统计的热门电影榜单</p>
+                <p className="text-sm text-slate-400">根据评分和人气统计的热门电影榜单</p>
               </div>
               <Link href="/search" className="text-sm text-emerald-400 hover:text-emerald-300">
                 查看更多 →
               </Link>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {/* 占位卡片 - 数据库连接后可替换为真实数据 */}
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="group rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-                  <div className="aspect-[2/3] rounded-lg bg-slate-800" />
-                  <h4 className="mt-3 text-sm font-medium text-white">加载中...</h4>
-                  <p className="text-xs text-slate-500">数据库连接后显示</p>
-                </div>
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="group rounded-xl border border-slate-800 bg-slate-900/50 p-4 animate-pulse">
+                    <div className="aspect-[2/3] rounded-lg bg-slate-800" />
+                    <div className="mt-3 h-4 w-3/4 rounded bg-slate-700" />
+                    <div className="mt-2 h-3 w-1/2 rounded bg-slate-700" />
+                  </div>
+                ))}
+              </div>
+            ) : popularMovies.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {popularMovies.map((movie) => (
+                  <Link 
+                    key={movie.id} 
+                    href={`/movies/${movie.id}`}
+                    className="group rounded-xl border border-slate-800 bg-slate-900/50 p-4 transition-colors hover:border-emerald-500/50"
+                  >
+                    <div className="aspect-[2/3] overflow-hidden rounded-lg bg-slate-800">
+                      {movie.poster_path ? (
+                        <img 
+                          src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+                          alt={movie.title}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <svg className="h-8 w-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <h4 className="mt-3 truncate text-sm font-medium text-white group-hover:text-emerald-400">
+                      {movie.title}
+                    </h4>
+                    <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                      <span>{movie.release_date?.split('-')[0] || '未知'}</span>
+                      {movie.vote_average && (
+                        <span className="flex items-center text-yellow-500">
+                          <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          {movie.vote_average.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center">
+                <p className="text-slate-400">暂无热门电影数据</p>
+                <p className="mt-2 text-sm text-slate-500">请确保后端服务正在运行</p>
+              </div>
+            )}
           </section>
         </div>
 
