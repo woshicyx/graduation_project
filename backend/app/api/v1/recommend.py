@@ -1,12 +1,13 @@
 """
 AI 推荐 API - 基于 RAG 的电影推荐
 
-集成 LLM 需求解析 + 向量检索 + 混合排序
+集成 LLM 需求解析 + 向量检索 + 混合排序 + 可解释推荐
 """
 from __future__ import annotations
 
 import time
 import json
+from typing import Optional, List
 from fastapi import APIRouter
 
 from app import schemas
@@ -16,13 +17,25 @@ from app.services.rag_service_fixed import (
     fetch_movies_by_ids,
     enhanced_hybrid_search,
 )
+from app.services.llm_service import LLMService
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
-def build_recommend_items(movies: list, limit: int = 10) -> list:
-    """构建推荐结果列表"""
+def build_recommend_items(
+    movies: list, 
+    limit: int = 10,
+    user_query: Optional[str] = None,
+    user_preferences: Optional[List[str]] = None
+) -> list:
+    """构建推荐结果列表，包含AI生成的推荐理由"""
     items = []
+    
+    # 批量获取推荐理由
+    reasons = LLMService.batch_generate_reasons(
+        movies[:limit], user_query, user_preferences
+    )
+    
     for movie in movies[:limit]:
         movie_id = movie.get("id")
         
@@ -33,12 +46,31 @@ def build_recommend_items(movies: list, limit: int = 10) -> list:
                 genres = json.loads(genres)
             except:
                 genres = []
+        # 处理 genres 是对象列表的情况
+        if genres and isinstance(genres[0], dict):
+            genres = [g.get("name", "") for g in genres if g.get("name")]
+        
+        # 处理 release_date
+        release_date = movie.get("release_date")
+        if hasattr(release_date, 'isoformat'):
+            release_date = release_date.isoformat()
+        elif release_date is None:
+            release_date = None
+        else:
+            release_date = str(release_date)
+        
+        # 获取推荐理由
+        reason = reasons.get(movie_id) if reasons else None
         
         items.append(schemas.RecommendItem(
             movie_id=movie_id,
             title=movie.get("title", "未知电影"),
+            poster_path=movie.get("poster_path"),
+            vote_average=movie.get("vote_average"),
+            release_date=release_date,
+            genres=genres,
             relevance_score=round(movie.get("final_score", movie.get("score", 0)), 4),
-            reason=None  # 暂不生成推荐理由
+            reason=reason
         ))
     
     return items
@@ -58,18 +90,19 @@ async def recommend_movies(payload: schemas.RecommendRequest) -> schemas.Recomme
     2. 使用语义核心进行向量检索
     3. 应用硬性过滤条件筛选结果
     4. 混合排序（向量分 + 评分 + 热度）
-    5. 返回推荐列表及相似度分数
+    5. 返回推荐列表（重排后Top5）及推荐理由
     """
     start_time = time.time()
     
-    # 获取推荐数量
-    limit = min(payload.max_results, 20)
+    # 获取推荐数量：最多检索20部，但最终只返回Top5（可解释性要求）
+    search_limit = 20
+    final_limit = min(payload.max_results, 5)  # 最终只返回Top5
     
     try:
-        # 使用增强混合搜索（包含 LLM 需求解析）
+        # 使用增强混合搜索（包含 LLM 需求解析）- 检索20部
         result = enhanced_hybrid_search(
             query=payload.query,
-            limit=limit
+            limit=search_limit
         )
         
         movies = result.get("movies", [])
@@ -77,8 +110,8 @@ async def recommend_movies(payload: schemas.RecommendRequest) -> schemas.Recomme
         semantic_query = result.get("semantic_query", payload.query)
         filters = result.get("filters", {})
         
-        # 构建推荐结果
-        items = build_recommend_items(movies, limit)
+        # 构建推荐结果 - 只返回Top5（可解释性要求）
+        items = build_recommend_items(movies, final_limit, payload.query)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
         
@@ -180,7 +213,7 @@ async def recommend_movies_stream(payload: schemas.RecommendRequest):
     基于增强 RAG 的电影推荐接口 - 流式输出版本
     
     流式返回：
-    - event: movie - 单个推荐电影信息
+    - event: movie - 单个推荐电影信息（含推荐理由）
     - event: done - 推荐完成
     - event: error - 错误信息
     """
@@ -207,6 +240,9 @@ async def recommend_movies_stream(payload: schemas.RecommendRequest):
             # 发送初始信息
             yield f"event: info\ndata: {json.dumps({'type': 'start', 'query': payload.query, 'llm_success': llm_success})}\n\n"
             
+            # 批量获取推荐理由
+            reasons = LLMService.batch_generate_reasons(movies[:limit], payload.query)
+            
             # 逐个发送电影
             for i, movie in enumerate(movies[:limit]):
                 movie_id = movie.get("id")
@@ -219,6 +255,18 @@ async def recommend_movies_stream(payload: schemas.RecommendRequest):
                     except:
                         genres = []
                 
+                # 处理 release_date 可能是 date 对象的情况
+                release_date = movie.get("release_date")
+                if hasattr(release_date, 'isoformat'):
+                    release_date = release_date.isoformat()
+                elif release_date is None:
+                    release_date = None
+                else:
+                    release_date = str(release_date)
+                
+                # 获取推荐理由
+                reason = reasons.get(movie_id) if reasons else None
+                
                 movie_data = {
                     "type": "movie",
                     "index": i,
@@ -226,13 +274,14 @@ async def recommend_movies_stream(payload: schemas.RecommendRequest):
                     "title": movie.get("title", "未知电影"),
                     "poster_path": movie.get("poster_path"),
                     "vote_average": movie.get("vote_average"),
-                    "release_date": movie.get("release_date"),
+                    "release_date": release_date,
                     "relevance_score": round(movie.get("final_score", movie.get("score", 0)), 4),
                     "genres": [g.get("name") if isinstance(g, dict) else str(g) for g in genres],
+                    "reason": reason,  # 添加推荐理由
                 }
                 
                 yield f"event: movie\ndata: {json.dumps(movie_data, ensure_ascii=False)}\n\n"
-                await asyncio.sleep(0.1)  # 控制发送速率，让前端有打字机效果
+                await asyncio.sleep(0.15)  # 控制发送速率，让前端有打字机效果
             
             elapsed_ms = int((time.time() - start_time) * 1000)
             

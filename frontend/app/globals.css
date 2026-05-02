@@ -27,8 +27,8 @@
   }
 
   .dark {
-    /* 深色主题 - 暗黑电影风格 */
-    --background: 240 10% 4%;        /* #0a0a0f - 接近纯黑 */
+    /* 深色主题 - 暗黑电影风格（高级深蓝紫底色） */
+    --background: 230 15% 4%;        /* #0B0C10 - 极微弱深蓝紫倾向的高级暗色 */
     --foreground: 0 0% 90%;          /* #e5e5e5 - 柔和白 */
     --card: 240 10% 7%;              /* #111116 - 深灰卡片 */
     --card-foreground: 0 0% 90%;     /* #e5e5e5 */
@@ -61,26 +61,33 @@
   
   body {
     @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* 自定义滚动条 - 暗黑风格 */
+  /* 自定义滚动条 - 暗黑风格（美化滚动条） */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(20, 20, 20, 0.5);
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(100, 100, 100, 0.5);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(120, 120, 120, 0.7);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Firefox 滚动条 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 
   /* 选中文字样式 */

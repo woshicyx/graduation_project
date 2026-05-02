@@ -67,7 +67,7 @@ export default function FavoriteButton({
 
     try {
       const action = isFavorite ? 'unlike' : 'like';
-      await toggleFavorite(movieId, action, user.id);
+      await toggleFavorite(movieId, action);
       setIsFavorite(!isFavorite);
     } catch (err) {
       const message = err instanceof Error ? err.message : '操作失败';

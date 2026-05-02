@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # LLM / Embedding 配置
     openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
     openai_api_base_url: Optional[AnyHttpUrl] = Field(default=None, alias="OPENAI_API_BASE_URL")
+    
+    # 智谱 AI 配置
+    zhipuai_api_key: Optional[str] = Field(default=None, alias="ZHIPUAI_API_KEY")
+    zhipuai_api_base: str = Field(default="https://open.bigmodel.cn/api/paas/v4", alias="ZHIPUAI_API_BASE")
 
     # TMDB API 配置
     tmdb_api_key: Optional[str] = Field(default=None, alias="TMDB_API_KEY")

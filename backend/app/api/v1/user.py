@@ -1,145 +1,163 @@
 """
 用户相关API：收藏、浏览历史、个人中心等
+使用JWT token认证
 """
 
 from __future__ import annotations
 
+import jwt
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, or_
 
-from app.core.db import get_db
+from app.core.config import settings
+from app.core.db import Database, get_db
 from app.models import User, UserFavorite, UserSearchHistory, UserWatchHistory, UserRating
 from app.schemas import (
     UserProfileResponse, FavoriteRequest, FavoriteResponse, 
     FavoriteListResponse, WatchHistoryResponse, SearchHistoryResponse,
-    UserStatsResponse, SearchHistoryCreate
+    UserStatsResponse, SearchHistoryCreate, MovieListItem
 )
 
 router = APIRouter(prefix="/users", tags=["用户"])
+security = HTTPBearer(auto_error=False)
 
-async def get_current_user_from_token(
-    token: str = Depends(lambda: None),  # 简化处理，实际应从header获取
-    db: Session = Depends(get_db)
-) -> Optional[User]:
-    """从令牌获取当前用户（简化版）"""
-    # 在实际应用中，这里应该解析JWT令牌
-    # 为了简化，我们暂时支持session_id或user_id参数
-    return None
+# JWT配置
+SECRET_KEY = settings.jwt_secret_key
+ALGORITHM = settings.jwt_algorithm
+
+
+def get_current_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """从Bearer token获取当前用户"""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证凭证",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = credentials.credentials
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的令牌",
+            )
+        
+        # 获取用户信息
+        user = Database.fetchrow(
+            "SELECT * FROM users WHERE id = %s AND is_active = true",
+            int(user_id)
+        )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在或已被禁用",
+            )
+        
+        return user
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="令牌已过期",
+        )
+    except jwt.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的令牌",
+        )
+
 
 @router.get("/me/favorites", response_model=FavoriteListResponse)
 async def get_user_favorites(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
-    user_id: Optional[int] = Query(None, description="用户ID（仅管理员可用）"),
-    db: Session = Depends(get_db),
-    # current_user: User = Depends(get_current_user_from_token)  # 实际需要认证
+    current_user: dict = Depends(get_current_user_from_token),
 ):
-    """获取用户的收藏列表"""
-    # 简化：暂时支持user_id参数
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要用户认证"
-        )
-    
-    # 验证用户是否存在
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+    """获取当前用户的收藏列表"""
+    user_id = current_user['id']
     
     # 获取收藏总数
-    total_count = db.query(func.count(UserFavorite.id)).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.is_liked == True
-    ).scalar() or 0
+    total_count_result = Database.fetchrow(
+        "SELECT COUNT(*) as cnt FROM user_favorites WHERE user_id = %s AND is_liked = true",
+        user_id
+    )
+    total_count = total_count_result['cnt'] if total_count_result else 0
     
-    # 获取收藏列表（连接movies表获取电影信息）
-    favorites_query = db.query(UserFavorite, func.jsonb_build_object(
-        'id', UserFavorite.id,
-        'user_id', UserFavorite.user_id,
-        'movie_id', UserFavorite.movie_id,
-        'is_liked', UserFavorite.is_liked,
-        'notes', UserFavorite.notes,
-        'created_at', UserFavorite.created_at,
-        'updated_at', UserFavorite.updated_at
-    )).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.is_liked == True
-    ).order_by(desc(UserFavorite.created_at))
-    
-    # 分页
+    # 获取收藏列表
     offset = (page - 1) * page_size
-    favorites_items = favorites_query.offset(offset).limit(page_size).all()
+    favorites_query = """
+        SELECT uf.id, uf.user_id, uf.movie_id, uf.is_liked, uf.notes, 
+               uf.created_at, uf.updated_at,
+               m.id as movie_id, m.title, m.poster_path, m.release_date, m.vote_average
+        FROM user_favorites uf
+        LEFT JOIN movies m ON uf.movie_id = m.id
+        WHERE uf.user_id = %s AND uf.is_liked = true
+        ORDER BY uf.created_at DESC
+        LIMIT %s OFFSET %s
+    """
     
-    # 构建响应
+    favorites_rows = Database.fetch(favorites_query, user_id, page_size, offset)
+    
     favorites = []
-    for fav_item in favorites_items:
-        fav_dict = fav_item[1]  # 获取JSONB对象
-        # 获取电影信息（这里需要连接movies表，简化处理）
-        movie_info = {}
-        try:
-            # 执行原始SQL查询获取电影信息
-            movie_result = db.execute(
-                "SELECT id, title, poster_path, release_date, vote_average FROM movies WHERE id = :movie_id",
-                {"movie_id": fav_dict['movie_id']}
-            ).fetchone()
-            
-            if movie_result:
-                movie_info = {
-                    'id': movie_result[0],
-                    'title': movie_result[1],
-                    'poster_path': movie_result[2],
-                    'release_date': movie_result[3],
-                    'vote_average': float(movie_result[4]) if movie_result[4] else 0.0
-                }
-        except Exception as e:
-            # 忽略错误，movie_info为空
-            pass
+    for row in favorites_rows:
+        movie_info = None
+        if row['id'] and row.get('title'):  # movie exists
+            movie_info = MovieListItem(
+                id=row['id'],
+                title=row['title'] or "未知",
+                poster_path=row['poster_path'],
+                vote_average=float(row['vote_average']) if row['vote_average'] else None,
+                popularity=None,
+                release_date=row['release_date'],
+                genres=[],
+                director=None
+            )
         
-        fav_dict['movie'] = movie_info
-        favorites.append(fav_dict)
+        favorites.append(FavoriteResponse(
+            id=row['id'],
+            user_id=row['user_id'],
+            movie_id=row['movie_id'],
+            is_liked=bool(row['is_liked']),
+            tags=[],
+            notes=row.get('notes'),
+            created_at=row['created_at'],
+            updated_at=row['updated_at'],
+            movie=movie_info
+        ))
     
     return FavoriteListResponse(
         favorites=favorites,
         total_count=total_count,
         page=page,
         page_size=page_size,
-        total_pages=(total_count + page_size - 1) // page_size
+        total_pages=(total_count + page_size - 1) // page_size if total_count > 0 else 0
     )
+
 
 @router.post("/me/favorites/{movie_id}", response_model=FavoriteResponse)
 async def add_to_favorites(
     movie_id: int,
     request: FavoriteRequest,
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user_from_token),
 ):
-    """添加电影到收藏"""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要用户认证"
-        )
-    
-    # 验证用户是否存在
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+    """添加/更新电影收藏"""
+    user_id = current_user['id']
     
     # 验证电影是否存在
-    movie_result = db.execute(
-        "SELECT id FROM movies WHERE id = :movie_id",
-        {"movie_id": movie_id}
-    ).fetchone()
+    movie_result = Database.fetchrow(
+        "SELECT id, title, poster_path FROM movies WHERE id = %s",
+        movie_id
+    )
     
     if not movie_result:
         raise HTTPException(
@@ -148,83 +166,64 @@ async def add_to_favorites(
         )
     
     # 检查是否已收藏
-    existing_favorite = db.query(UserFavorite).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.movie_id == movie_id
-    ).first()
+    existing_favorite = Database.fetchrow(
+        "SELECT * FROM user_favorites WHERE user_id = %s AND movie_id = %s",
+        user_id, movie_id
+    )
+    
+    now = datetime.utcnow()
     
     if existing_favorite:
         # 更新现有收藏
-        existing_favorite.is_liked = request.action == "like"
-        existing_favorite.notes = request.notes
-        existing_favorite.updated_at = datetime.utcnow()
+        Database.execute(
+            """UPDATE user_favorites SET is_liked = %s, notes = %s, updated_at = %s 
+               WHERE user_id = %s AND movie_id = %s""",
+            request.action == "like", request.notes, now, user_id, movie_id
+        )
+        favorite_id = existing_favorite['id']
     else:
         # 创建新收藏
-        favorite = UserFavorite(
-            user_id=user_id,
-            movie_id=movie_id,
-            is_liked=request.action == "like",
-            tags=request.tags or [],
-            notes=request.notes,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+        Database.execute(
+            """INSERT INTO user_favorites (user_id, movie_id, is_liked, notes, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            user_id, movie_id, request.action == "like", request.notes, now, now
         )
-        db.add(favorite)
-    
-    db.commit()
-    
-    # 获取更新后的收藏记录
-    if existing_favorite:
-        favorite = existing_favorite
-    else:
-        favorite = db.query(UserFavorite).filter(
-            UserFavorite.user_id == user_id,
-            UserFavorite.movie_id == movie_id
-        ).first()
-    
-    # 获取电影信息
-    movie_result = db.execute(
-        "SELECT id, title, poster_path FROM movies WHERE id = :movie_id",
-        {"movie_id": movie_id}
-    ).fetchone()
-    
-    movie_info = {}
-    if movie_result:
-        movie_info = {
-            'id': movie_result[0],
-            'title': movie_result[1],
-            'poster_path': movie_result[2]
-        }
+        # 获取新创建的记录ID
+        new_favorite = Database.fetchrow(
+            "SELECT id FROM user_favorites WHERE user_id = %s AND movie_id = %s",
+            user_id, movie_id
+        )
+        favorite_id = new_favorite['id'] if new_favorite else 0
     
     return FavoriteResponse(
-        id=favorite.id,
-        user_id=favorite.user_id,
-        movie_id=favorite.movie_id,
-        is_liked=favorite.is_liked,
-        notes=favorite.notes,
-        movie=movie_info,
-        created_at=favorite.created_at,
-        updated_at=favorite.updated_at
+        id=favorite_id,
+        user_id=user_id,
+        movie_id=movie_id,
+        is_liked=request.action == "like",
+        notes=request.notes,
+        movie={
+            'id': movie_result['id'],
+            'title': movie_result['title'],
+            'poster_path': movie_result['poster_path']
+        },
+        created_at=now,
+        updated_at=now
     )
+
 
 @router.delete("/me/favorites/{movie_id}")
 async def remove_from_favorites(
     movie_id: int,
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user_from_token),
 ):
     """从收藏中移除电影"""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要用户认证"
-        )
+    user_id = current_user['id']
     
     # 查找收藏记录
-    favorite = db.query(UserFavorite).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.movie_id == movie_id
-    ).first()
+    favorite = Database.fetchrow(
+        "SELECT id FROM user_favorites WHERE user_id = %s AND movie_id = %s",
+        user_id, movie_id
+    )
     
     if not favorite:
         raise HTTPException(
@@ -233,83 +232,76 @@ async def remove_from_favorites(
         )
     
     # 软删除：标记为不喜欢
-    favorite.is_liked = False
-    favorite.updated_at = datetime.utcnow()
-    db.commit()
+    Database.execute(
+        "UPDATE user_favorites SET is_liked = false, updated_at = %s WHERE user_id = %s AND movie_id = %s",
+        datetime.utcnow(), user_id, movie_id
+    )
     
     return {"message": "已从收藏中移除"}
+
 
 @router.get("/me/watch-history", response_model=List[WatchHistoryResponse])
 async def get_watch_history(
     limit: int = Query(50, ge=1, le=200, description="返回记录数量"),
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user_from_token),
 ):
     """获取用户的浏览历史"""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要用户认证"
-        )
+    user_id = current_user['id']
     
     # 获取浏览历史记录
-    history_query = db.query(UserWatchHistory).filter(
-        UserWatchHistory.user_id == user_id
-    ).order_by(desc(UserWatchHistory.created_at))
+    history_rows = Database.fetch(
+        """SELECT uwh.id, uwh.user_id, uwh.movie_id, uwh.watch_duration, 
+                  uwh.progress, uwh.interaction_score, uwh.created_at,
+                  m.id as m_id, m.title, m.poster_path, m.release_date
+           FROM user_watch_history uwh
+           LEFT JOIN movies m ON uwh.movie_id = m.id
+           WHERE uwh.user_id = %s
+           ORDER BY uwh.created_at DESC
+           LIMIT %s""",
+        user_id, limit
+    )
     
-    history_items = history_query.limit(limit).all()
-    
-    # 构建响应
     history_list = []
-    for item in history_items:
-        # 获取电影信息
-        movie_result = db.execute(
-            "SELECT id, title, poster_path, release_date FROM movies WHERE id = :movie_id",
-            {"movie_id": item.movie_id}
-        ).fetchone()
-        
-        movie_info = {}
-        if movie_result:
-            movie_info = {
-                'id': movie_result[0],
-                'title': movie_result[1],
-                'poster_path': movie_result[2],
-                'release_date': movie_result[3]
-            }
+    for row in history_rows:
+        movie_info = None
+        if row.get('m_id') and row.get('title'):
+            movie_info = MovieListItem(
+                id=row['m_id'],
+                title=row['title'],
+                poster_path=row['poster_path'],
+                release_date=row['release_date']
+            )
         
         history_list.append(WatchHistoryResponse(
-            id=item.id,
-            user_id=item.user_id,
-            movie_id=item.movie_id,
-            movie=movie_info,
-            watch_duration=item.watch_duration or 0,
-            progress=item.progress or 0.0,
-            interaction_score=item.interaction_score or 1,
-            created_at=item.created_at
+            id=row['id'],
+            user_id=row['user_id'],
+            movie_id=row['movie_id'],
+            watch_date=row['created_at'],
+            watch_duration=row.get('watch_duration') or 0,
+            progress=row.get('progress') or 0.0,
+            interaction_score=row.get('interaction_score') or 1,
+            created_at=row['created_at'],
+            movie=movie_info
         ))
     
     return history_list
+
 
 @router.post("/me/watch-history/{movie_id}")
 async def add_watch_history(
     movie_id: int,
     watch_duration: Optional[int] = Query(None, description="观看时长（秒）"),
     progress: Optional[float] = Query(None, ge=0.0, le=1.0, description="观看进度（0-1）"),
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user_from_token),
 ):
     """记录用户浏览历史"""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要用户认证"
-        )
+    user_id = current_user['id']
     
     # 验证电影是否存在
-    movie_result = db.execute(
-        "SELECT id FROM movies WHERE id = :movie_id",
-        {"movie_id": movie_id}
-    ).fetchone()
+    movie_result = Database.fetchrow(
+        "SELECT id FROM movies WHERE id = %s",
+        movie_id
+    )
     
     if not movie_result:
         raise HTTPException(
@@ -318,159 +310,147 @@ async def add_watch_history(
         )
     
     # 检查是否有历史记录
-    history = db.query(UserWatchHistory).filter(
-        UserWatchHistory.user_id == user_id,
-        UserWatchHistory.movie_id == movie_id
-    ).first()
+    history = Database.fetchrow(
+        "SELECT * FROM user_watch_history WHERE user_id = %s AND movie_id = %s",
+        user_id, movie_id
+    )
+    
+    now = datetime.utcnow()
     
     if history:
         # 更新现有记录
+        update_fields = ["created_at = %s"]
+        update_values = [now]
+        
         if watch_duration is not None:
-            history.watch_duration = watch_duration
+            update_fields.append("watch_duration = %s")
+            update_values.append(watch_duration)
         if progress is not None:
-            history.progress = progress
-        history.interaction_score = (history.interaction_score or 1) + 1
-        history.created_at = datetime.utcnow()
+            update_fields.append("progress = %s")
+            update_values.append(progress)
+        
+        update_fields.append("interaction_score = interaction_score + 1")
+        update_values.extend([user_id, movie_id])
+        
+        Database.execute(
+            f"UPDATE user_watch_history SET {', '.join(update_fields)} WHERE user_id = %s AND movie_id = %s",
+            *update_values
+        )
     else:
         # 创建新记录
-        history = UserWatchHistory(
-            user_id=user_id,
-            movie_id=movie_id,
-            watch_duration=watch_duration or 0,
-            progress=progress or 0.0,
-            interaction_score=1,
-            created_at=datetime.utcnow()
+        Database.execute(
+            """INSERT INTO user_watch_history (user_id, movie_id, watch_duration, progress, interaction_score, created_at)
+               VALUES (%s, %s, %s, %s, 1, %s)""",
+            user_id, movie_id, watch_duration or 0, progress or 0.0, now
         )
-        db.add(history)
-    
-    db.commit()
     
     return {"message": "浏览历史已记录"}
 
-@router.get("/me/search-history", response_model=List[SearchHistoryResponse])
-async def get_search_history(
-    limit: int = Query(20, ge=1, le=100, description="返回记录数量"),
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    session_id: Optional[str] = Query(None, description="会话ID（游客模式）"),
-    db: Session = Depends(get_db)
-):
-    """获取用户的搜索历史"""
-    # 支持用户ID或会话ID
-    if not user_id and not session_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="需要用户ID或会话ID"
-        )
-    
-    # 构建查询条件
-    query_filter = []
-    if user_id:
-        query_filter.append(UserSearchHistory.user_id == user_id)
-    if session_id:
-        query_filter.append(UserSearchHistory.session_id == session_id)
-    
-    # 获取搜索历史
-    history_query = db.query(UserSearchHistory).filter(
-        or_(*query_filter)
-    ).order_by(desc(UserSearchHistory.created_at))
-    
-    history_items = history_query.limit(limit).all()
-    
-    # 构建响应
-    history_list = []
-    for item in history_items:
-        history_list.append(SearchHistoryResponse(
-            id=item.id,
-            user_id=item.user_id,
-            session_id=item.session_id,
-            query=item.query,
-            search_type=item.search_type or "keyword",
-            filters=item.filters or {},
-            result_count=item.result_count or 0,
-            click_count=item.click_count or 0,
-            is_successful=item.is_successful or True,
-            created_at=item.created_at
-        ))
-    
-    return history_list
 
-@router.post("/me/search-history")
+@router.post("/me/search-history/{movie_id}")
 async def add_search_history(
-    search_data: SearchHistoryCreate,
-    user_id: Optional[int] = Query(None, description="用户ID"),
-    session_id: Optional[str] = Query(None, description="会话ID（游客模式）"),
-    db: Session = Depends(get_db)
+    movie_id: int,
+    query: Optional[str] = Query(None, description="搜索关键词"),
+    current_user: dict = Depends(get_current_user_from_token),
 ):
-    """记录用户搜索历史"""
-    # 支持用户ID或会话ID
-    if not user_id and not session_id:
-        # 生成随机会话ID（简化处理）
-        import uuid
-        session_id = str(uuid.uuid4())[:20]
-    else:
-        session_id = search_data.session_id or session_id
+    """记录用户从搜索结果点击的电影"""
+    user_id = current_user['id']
     
-    # 创建搜索历史记录
-    history = UserSearchHistory(
-        user_id=user_id,
-        session_id=session_id,
-        query=search_data.query,
-        search_type=search_data.search_type,
-        filters=search_data.filters,
-        result_count=search_data.result_count,
-        result_ids=search_data.result_ids,
-        click_count=search_data.click_count,
-        is_successful=search_data.is_successful,
-        created_at=datetime.utcnow()
+    # 验证电影是否存在
+    movie_result = Database.fetchrow(
+        "SELECT id, title FROM movies WHERE id = %s",
+        movie_id
     )
     
-    db.add(history)
-    db.commit()
+    if not movie_result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="电影不存在"
+        )
+    
+    now = datetime.utcnow()
+    
+    # 检查是否有搜索历史记录
+    search_history = Database.fetchrow(
+        "SELECT * FROM user_search_history WHERE user_id = %s ORDER BY created_at DESC LIMIT 1",
+        user_id
+    )
+    
+    if search_history:
+        # 更新现有记录，增加点击次数
+        click_count = search_history.get('click_count', 0) + 1
+        Database.execute(
+            """UPDATE user_search_history 
+               SET click_count = %s, created_at = %s
+               WHERE id = %s""",
+            click_count, now, search_history['id']
+        )
+    else:
+        # 创建新搜索历史记录（记录点击的电影）
+        Database.execute(
+            """INSERT INTO user_search_history 
+               (user_id, query, result_count, result_ids, click_count, created_at)
+               VALUES (%s, %s, 1, %s, 1, %s)""",
+            user_id, query or f"电影:{movie_result['title']}", 
+            f"[{movie_id}]", now
+        )
+    
+    return {"message": "搜索历史已记录"}
+
+
+@router.get("/check-favorite/{movie_id}")
+async def check_favorite_status(
+    movie_id: int,
+    current_user: dict = Depends(get_current_user_from_token),
+):
+    """检查用户是否收藏了某部电影"""
+    user_id = current_user['id']
+    
+    favorite = Database.fetchrow(
+        "SELECT * FROM user_favorites WHERE user_id = %s AND movie_id = %s",
+        user_id, movie_id
+    )
+    
+    if not favorite:
+        return {"is_favorited": False, "is_liked": False}
     
     return {
-        "message": "搜索历史已记录",
-        "session_id": session_id if not user_id else None
+        "is_favorited": True,
+        "is_liked": favorite['is_liked'],
+        "notes": favorite.get('notes'),
+        "updated_at": favorite.get('updated_at')
     }
+
 
 @router.get("/me/stats", response_model=UserStatsResponse)
 async def get_user_stats(
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    db: Session = Depends(get_db)
+    current_user: dict = Depends(get_current_user_from_token),
 ):
     """获取用户统计信息"""
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="需要用户认证"
-        )
-    
-    # 验证用户是否存在
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+    user_id = current_user['id']
     
     # 统计各类数据
-    watch_count = db.query(func.count(UserWatchHistory.id)).filter(
-        UserWatchHistory.user_id == user_id
-    ).scalar() or 0
+    watch_count = Database.fetchone(
+        "SELECT COUNT(*) FROM user_watch_history WHERE user_id = %s",
+        user_id
+    )[0] or 0
     
-    favorite_count = db.query(func.count(UserFavorite.id)).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.is_liked == True
-    ).scalar() or 0
+    favorite_count = Database.fetchone(
+        "SELECT COUNT(*) FROM user_favorites WHERE user_id = %s AND is_liked = true",
+        user_id
+    )[0] or 0
     
-    rating_count = db.query(func.count(UserRating.id)).filter(
-        UserRating.user_id == user_id
-    ).scalar() or 0
+    rating_count = Database.fetchone(
+        "SELECT COUNT(*) FROM user_ratings WHERE user_id = %s",
+        user_id
+    )[0] or 0
     
-    search_count = db.query(func.count(UserSearchHistory.id)).filter(
-        UserSearchHistory.user_id == user_id
-    ).scalar() or 0
+    search_count = Database.fetchone(
+        "SELECT COUNT(*) FROM user_search_history WHERE user_id = %s",
+        user_id
+    )[0] or 0
     
-    # 计算活跃度分数（简化版）
+    # 计算活跃度分数
     activity_score = (
         watch_count * 0.3 +
         favorite_count * 0.4 +
@@ -480,15 +460,12 @@ async def get_user_stats(
     
     # 获取最近活动时间
     recent_activity = None
-    
-    # 检查最近收藏
-    latest_favorite = db.query(UserFavorite).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.is_liked == True
-    ).order_by(desc(UserFavorite.updated_at)).first()
-    
+    latest_favorite = Database.fetchrow(
+        "SELECT updated_at FROM user_favorites WHERE user_id = %s AND is_liked = true ORDER BY updated_at DESC LIMIT 1",
+        user_id
+    )
     if latest_favorite:
-        recent_activity = latest_favorite.updated_at
+        recent_activity = latest_favorite['updated_at']
     
     return UserStatsResponse(
         user_id=user_id,
@@ -498,30 +475,5 @@ async def get_user_stats(
         search_count=search_count,
         activity_score=round(activity_score, 2),
         recent_activity=recent_activity,
-        member_since=user.created_at
+        member_since=current_user['created_at']
     )
-
-@router.get("/check-favorite/{movie_id}")
-async def check_favorite_status(
-    movie_id: int,
-    user_id: Optional[int] = Query(None, description="用户ID（仅测试用）"),
-    db: Session = Depends(get_db)
-):
-    """检查用户是否收藏了某部电影"""
-    if not user_id:
-        return {"is_favorited": False, "is_liked": False}
-    
-    favorite = db.query(UserFavorite).filter(
-        UserFavorite.user_id == user_id,
-        UserFavorite.movie_id == movie_id
-    ).first()
-    
-    if not favorite:
-        return {"is_favorited": False, "is_liked": False}
-    
-    return {
-        "is_favorited": True,
-        "is_liked": favorite.is_liked,
-        "notes": favorite.notes,
-        "updated_at": favorite.updated_at
-    }

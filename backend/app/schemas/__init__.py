@@ -308,8 +308,9 @@ class MovieStats(BaseModel):
 
 class FavoriteRequest(BaseModel):
     """收藏请求"""
-    movie_id: int = Field(..., description="电影ID")
-    is_liked: bool = Field(True, description="是否喜欢")
+    action: str = Field(..., description="操作: like/unlike")
+    movie_id: Optional[int] = Field(None, description="电影ID（可选，已通过URL传递）")
+    is_liked: Optional[bool] = Field(None, description="是否喜欢")
     tags: List[str] = Field(default_factory=list, description="标签")
     notes: Optional[str] = Field(None, description="备注")
 
@@ -331,10 +332,11 @@ class FavoriteResponse(BaseModel):
 
 class FavoriteListResponse(BaseModel):
     """收藏列表响应"""
-    items: List[FavoriteResponse] = Field(default_factory=list)
-    total: int = Field(0, description="总收藏数")
+    favorites: List[FavoriteResponse] = Field(default_factory=list)
+    total_count: int = Field(0, description="总收藏数")
     page: int = Field(1, description="当前页码")
     page_size: int = Field(20, description="每页数量")
+    total_pages: int = Field(0, description="总页数")
 
 
 class WatchHistoryResponse(BaseModel):
@@ -510,6 +512,10 @@ class RecommendItem(BaseModel):
     """推荐项目"""
     movie_id: int = Field(..., description="电影ID")
     title: str = Field(..., description="电影标题")
+    poster_path: Optional[str] = Field(None, description="海报路径")
+    vote_average: Optional[float] = Field(None, description="评分")
+    release_date: Optional[str] = Field(None, description="上映日期")
+    genres: List[str] = Field(default_factory=list, description="类型列表")
     relevance_score: float = Field(..., description="相关性得分（0-1）")
     reason: Optional[str] = Field(None, description="推荐理由")
 

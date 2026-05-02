@@ -83,7 +83,7 @@ export default function HistoryPage() {
       </div>
 
       {/* 导航 */}
-      <header className="relative z-10 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur">
+      <header className="relative z-10 border-b border-white/10 bg-black/50 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-red-700">

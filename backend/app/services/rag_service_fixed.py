@@ -19,6 +19,9 @@ import time
 import requests
 from typing import List, Dict, Any, Optional, Tuple
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
@@ -501,11 +504,27 @@ def apply_filters(
             except:
                 pass
         
-        # 类型过滤
+        # 类型过滤 - 同时匹配中英文
         genre = filters.get("genre")
         if genre:
             genres_str = str(movie.get("genres", ""))
-            if genre.lower() not in genres_str.lower():
+            # 匹配中文类型或英文类型
+            genre_match = False
+            genre_lower = genre.lower()
+            # 检查是否直接包含（英文或中文）
+            if genre_lower in genres_str.lower():
+                genre_match = True
+            # 检查翻译后的英文类型
+            english_genre = GENRE_TRANSLATION.get(genre, "").lower()
+            if english_genre in genres_str.lower():
+                genre_match = True
+            # 检查翻译后的中文类型
+            for zh, en in GENRE_TRANSLATION.items():
+                if zh.lower() == genre_lower and zh.lower() in genres_str.lower():
+                    genre_match = True
+                    break
+            
+            if not genre_match:
                 continue
         
         # 导演过滤（精确匹配）
@@ -596,15 +615,14 @@ def hybrid_search(
     
     # 自动策略选择
     if strategy == "auto":
-        # 如果同时有导演和类型，使用OR逻辑版本
-        if filters.get("director") and filters.get("genre"):
-            strategy = "filter_first_or"
-        elif filters.get("director") or filters.get("genre"):
-            strategy = "filter_first"
-        else:
-            strategy = "search_first"
+        # 始终使用 search_first，避免 filter_first 的 id 索引问题
+        # filter_first 需要 Qdrant 为 id 字段创建索引
+        strategy = "search_first"
     
-    print(f"混合搜索策略: {strategy}, 查询: {query}, 过滤: {filters}")
+    # 当filters为空时，使用更大的expansion_factor进行情感类查询
+    expansion_factor = 15 if not filters else 5
+    
+    print(f"混合搜索策略: {strategy}, 查询: {query}, 过滤: {filters}, expansion: {expansion_factor}")
     
     if strategy == "filter_first_or":
         return filter_first_search_with_or(query, filters, limit)
@@ -735,15 +753,9 @@ def enhanced_hybrid_search(
     
     print(f"LLM 解析结果: 语义查询={semantic_query}, 过滤={filters}")
     
-    # 3. 自动选择策略
-    strategy = "auto"
-    # 如果同时有导演和类型，使用OR逻辑版本
-    if filters.get("director") and filters.get("genre"):
-        strategy = "filter_first_or"
-    elif filters.get("director") or filters.get("genre"):
-        strategy = "filter_first"
-    else:
-        strategy = "search_first"
+    # 3. 始终使用 search_first 策略，避免 filter_first 的 id 索引问题
+    # filter_first 需要 Qdrant 为 id 字段创建索引
+    strategy = "search_first"
     
     # 4. 执行混合搜索
     movies = hybrid_search(

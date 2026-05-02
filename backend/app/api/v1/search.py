@@ -18,10 +18,14 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 def search_movies(
     query: str,
-    genre: Optional[str] = None,
+    genres: Optional[str] = None,  # 支持多选，用逗号分隔
     director: Optional[str] = None,
     rating_min: Optional[float] = None,
     rating_max: Optional[float] = None,
+    year_min: Optional[int] = None,
+    year_max: Optional[int] = None,
+    years: Optional[str] = None,  # 支持多选年份，用逗号分隔
+    sort: Optional[str] = None,  # 排序方式: rating, popular, boxoffice
     page: int = 1,
     page_size: int = 20,
 ) -> PaginatedMovies:
@@ -31,13 +35,18 @@ def search_movies(
         conditions = []
         params = []
         
-        if query:
+        # 当 query 为空或 '*' 时，不添加搜索条件（返回全部电影）
+        if query and query != '*':
             conditions.append("(title ILIKE %s OR original_title ILIKE %s OR overview ILIKE %s)")
             params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
         
-        if genre:
-            conditions.append("genres ILIKE %s")
-            params.append(f"%{genre}%")
+        # 类型筛选（多选，使用OR逻辑）
+        if genres:
+            genre_list = [g.strip() for g in genres.split(',') if g.strip()]
+            if genre_list:
+                genre_conditions = [f"genres ILIKE %s" for _ in genre_list]
+                conditions.append(f"({' OR '.join(genre_conditions)})")
+                params.extend([f"%{g}%" for g in genre_list])
         
         if director:
             conditions.append("director ILIKE %s")
@@ -51,7 +60,39 @@ def search_movies(
             conditions.append("vote_average <= %s")
             params.append(rating_max)
         
+        # 年份筛选：release_date 格式为 YYYY-MM-DD
+        if years:
+            # 多选年份筛选，使用OR逻辑
+            year_list = [y.strip() for y in years.split(',') if y.strip()]
+            if year_list:
+                year_conditions = []
+                for y in year_list:
+                    if y == "1980":  # "更早" 表示1980年之前
+                        year_conditions.append("(release_date < '1980-01-01' OR release_date IS NULL)")
+                    else:
+                        year_conditions.append(f"(release_date >= '{y}-01-01' AND release_date <= '{y}-12-31')")
+                if year_conditions:
+                    conditions.append(f"({' OR '.join(year_conditions)})")
+        else:
+            # 单一年份筛选
+            if year_min is not None:
+                conditions.append("release_date >= %s")
+                params.append(f"{year_min}-01-01")
+            
+            if year_max is not None:
+                conditions.append("release_date <= %s")
+                params.append(f"{year_max}-12-31")
+        
         where_clause = " AND ".join(conditions) if conditions else "1=1"
+        
+        # 排序方式
+        order_clause = "vote_average DESC, popularity DESC"
+        if sort == "rating":
+            order_clause = "vote_average DESC"
+        elif sort == "popular":
+            order_clause = "popularity DESC"
+        elif sort == "boxoffice":
+            order_clause = "vote_average DESC, popularity DESC"  # 票房暂无单独字段，使用评分+人气
         
         # 获取总数
         count_query = f"SELECT COUNT(*) as total FROM movies WHERE {where_clause}"
@@ -65,7 +106,7 @@ def search_movies(
         search_query = f"""
             SELECT * FROM movies 
             WHERE {where_clause}
-            ORDER BY vote_average DESC, popularity DESC
+            ORDER BY {order_clause}
             LIMIT %s OFFSET %s
         """
         
@@ -108,24 +149,32 @@ def search_movies(
 @router.get(
     "/hybrid",
     response_model=PaginatedMovies,
-    summary="搜索电影",
+    summary="搜索电影（支持多选筛选）",
 )
 def hybrid_search(
-    query: str = Query(..., description="自然语言搜索词"),
-    genre: Optional[str] = None,
-    director: Optional[str] = None,
+    query: str = Query(default="*", description="搜索词，*表示全部"),
+    genres: Optional[str] = Query(default=None, description="多选类型，用逗号分隔"),
+    director: Optional[str] = Query(default=None, description="导演搜索"),
     rating_min: Optional[float] = Query(default=None, ge=0.0, le=10.0),
     rating_max: Optional[float] = Query(default=None, ge=0.0, le=10.0),
+    year_min: Optional[int] = Query(default=None, ge=1900, le=2100),
+    year_max: Optional[int] = Query(default=None, ge=1900, le=2100),
+    years: Optional[str] = Query(default=None, description="多选年代，用逗号分隔"),
+    sort: Optional[str] = Query(default=None, description="排序: rating, popular, boxoffice"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> PaginatedMovies:
-    """搜索电影"""
+    """搜索电影（支持多选筛选）"""
     return search_movies(
         query=query,
-        genre=genre,
+        genres=genres,
         director=director,
         rating_min=rating_min,
         rating_max=rating_max,
+        year_min=year_min,
+        year_max=year_max,
+        years=years,
+        sort=sort,
         page=page,
         page_size=page_size,
     )

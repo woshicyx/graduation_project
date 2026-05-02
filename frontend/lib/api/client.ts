@@ -2,7 +2,7 @@
  * API客户端配置
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8015';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface ApiResponse<T> {
   data: T;
@@ -30,6 +30,14 @@ export class ApiError extends Error {
 }
 
 /**
+ * 从localStorage获取token
+ */
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('access_token');
+}
+
+/**
  * 统一的API请求函数
  */
 export async function apiRequest<T>(
@@ -38,10 +46,16 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const defaultHeaders = {
+  const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
+
+  // 添加认证token（如果是用户相关的API）
+  const token = getAuthToken();
+  if (token && (endpoint.includes('/users') || endpoint.includes('/personalized') || endpoint.includes('/favorites') || endpoint.includes('/history'))) {
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
 
   const config: RequestInit = {
     ...options,

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
-from .api.v1 import health, movies_tmdb, search, recommend, reviews, auth, user
+from .api.v1 import health, movies_tmdb, search, recommend, reviews, auth, user, personalized
 
 
 def create_app() -> FastAPI:
@@ -18,16 +19,28 @@ def create_app() -> FastAPI:
         debug=settings.debug,
     )
 
-    # CORS：允许前端开发服务器访问
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
+    # CORS 配置 - 根据环境动态设置
+    environment = os.getenv("ENVIRONMENT", "dev")
+    
+    if environment == "prod":
+        # 生产环境：只允许前端域名
+        allowed_origins = [
+            "https://movieai.vercel.app",
+            "https://movieai-*.vercel.app",
+        ]
+    else:
+        # 开发环境：允许本地和所有来源
+        allowed_origins = [
             "http://localhost:3000", 
             "http://127.0.0.1:3000",
             "http://localhost:3001",
             "http://127.0.0.1:3001",
-            "*"  # 开发环境允许所有来源
-        ],
+            "*"
+        ]
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -41,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(search.router, prefix="/api")
     app.include_router(recommend.router, prefix="/api")
     app.include_router(reviews.router, prefix="/api")
+    app.include_router(personalized.router, prefix="/api")
 
     return app
 

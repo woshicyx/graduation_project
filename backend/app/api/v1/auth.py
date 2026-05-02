@@ -6,13 +6,15 @@ from typing import Optional
 import bcrypt
 import jwt
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.db import Database
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+security = HTTPBearer(auto_error=False)
 
 # JWT配置
 SECRET_KEY = settings.jwt_secret_key
@@ -224,11 +226,62 @@ def logout():
     return {"message": "登出成功"}
 
 
+def get_current_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """从Bearer token获取当前用户"""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证凭证",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = credentials.credentials
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的令牌",
+            )
+        
+        # 获取用户信息
+        user = Database.fetchrow(
+            "SELECT * FROM users WHERE id = %s AND is_active = true",
+            int(user_id)
+        )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在或已被禁用",
+            )
+        
+        return user
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="令牌已过期",
+        )
+    except jwt.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的令牌",
+        )
+
+
 @router.get("/me", response_model=UserResponse)
-def get_current_user():
+def get_current_user(user: dict = Depends(get_current_user_from_token)):
     """获取当前用户信息（需要Bearer token）"""
-    # 这个端点需要JWT验证，暂时返回模拟数据
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="需要认证"
+    return UserResponse(
+        id=user['id'],
+        username=user['username'],
+        email=user['email'],
+        role=user['role'],
+        is_active=user['is_active'],
+        is_verified=user['is_verified'],
+        created_at=user['created_at'],
+        updated_at=user['updated_at']
     )

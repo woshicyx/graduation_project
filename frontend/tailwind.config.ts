@@ -53,6 +53,15 @@ const config: Config = {
         "red-glow": "0 0 20px rgba(229, 9, 20, 0.3), 0 4px 6px rgba(0, 0, 0, 0.3)",
         "orange-glow": "0 0 20px rgba(245, 166, 35, 0.3), 0 4px 6px rgba(0, 0, 0, 0.3)",
       },
+      keyframes: {
+        slowDrift: {
+          "0%": { transform: "translate(-50%, -50%) rotate(-12deg) translateY(0)" },
+          "100%": { transform: "translate(-50%, -50%) rotate(-12deg) translateY(-10%)" },
+        },
+      },
+      animation: {
+        "slow-drift": "slowDrift 80s linear infinite",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

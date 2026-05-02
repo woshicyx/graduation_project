@@ -293,17 +293,23 @@ EXTRACT_PROMPT_TEMPLATE = """你是一个电影推荐助手。请解析用户的
 - "宫崎骏" → "Hayao Miyazaki"
 - 其他导演名保持原样
 
+【重要】情感/意境类描述处理：
+- 如果用户描述的是心情、情绪、意境（如"失恋了"、"平静的生活增添趣味"、"想放松一下"、"治愈"、"暖心"），
+  请在 filters 中返回空对象 {{}}，不要生成任何 genre/year/rating 硬性条件
+- 只在 semantic_query 中保留用户原始的情感描述，让向量检索去匹配电影的剧情和情感基调
+- 语义查询应该是用户的完整原话，帮助向量检索找到情感基调匹配的电影
+
 用户查询: {query}
 
-请输出 JSON 格式（只输出JSON，不要其他内容）:
+请输出 JSON 格式（只输出JSON，不要其他内容）：
 {{
-  "semantic_query": "用于语义检索的核心描述（保留用户原始语言，不要翻译）",
+  "semantic_query": "用于语义检索的核心描述（情感类保留原话，类型类提取关键词）",
   "filters": {{
-    "genre": "中文标准类型（必须翻译为中文）",
-    "director": "导演姓名",
-    "rating_min": 最低评分数字,
-    "year_min": 最早年份,
-    "runtime_max": 最长时长（分钟）"
+    "genre": "中文标准类型（只有用户明确提到类型时才填）",
+    "director": "导演姓名（只有用户明确提到导演时才填）",
+    "rating_min": 最低评分数字（只有用户明确提到评分时才填）",
+    "year_min": 最早年份（只有用户明确提到年代时才填）",
+    "runtime_max": 最长时长（分钟）（只有用户明确提到时长时才填）"
   }}
 }}
 
@@ -312,7 +318,13 @@ EXTRACT_PROMPT_TEMPLATE = """你是一个电影推荐助手。请解析用户的
 输出: {{"semantic_query": "funny comedy movie", "filters": {{"genre": "喜剧", "rating_min": 8.0}}}}
 
 查询 "想看诺兰导演的科幻片，评分8分以上"
-输出: {{"semantic_query": "科幻片", "filters": {{"genre": "科幻", "director": "Christopher Nolan", "rating_min": 8.0}}}}"""
+输出: {{"semantic_query": "科幻片", "filters": {{"genre": "科幻", "director": "Christopher Nolan", "rating_min": 8.0}}}}
+
+查询 "失恋了想看部温暖的电影"
+输出: {{"semantic_query": "失恋了想看部温暖的电影", "filters": {{}}}}
+
+查询 "平静的生活增添趣味"
+输出: {{"semantic_query": "平静的生活增添趣味", "filters": {{}}}}"""
 
 
 def call_zhipuai_llm(prompt: str, model: str = None) -> Optional[str]:
@@ -342,7 +354,7 @@ def call_zhipuai_llm(prompt: str, model: str = None) -> Optional[str]:
             f"{ZHIPUAI_API_BASE}/chat/completions",
             headers=headers,
             json=data,
-            timeout=10
+            timeout=30  # 增加超时时间到30秒
         )
         
         if response.status_code == 200:
