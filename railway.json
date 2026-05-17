@@ -1,8 +1,11 @@
 {
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "nixpacksConfig": {
+      "exclude": ["frontend/**", "*.json", "*.md", "paper/**", ".gitignore"]
+    }
   },
   "deploy": {
-    "rootDirectory": "backend"
+    "startCommand": "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
   }
 }
