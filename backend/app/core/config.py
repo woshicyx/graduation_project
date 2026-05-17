@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     db_password: str = Field(default="356921", alias="DB_PASSWORD")
 
     # 向量数据库配置（优先使用 Qdrant，其次 Pinecone）
-    qdrant_url: Optional[AnyHttpUrl] = Field(default=None, alias="QDRANT_URL")
+    qdrant_url: Optional[str] = Field(default=None, alias="QDRANT_URL")
     qdrant_api_key: Optional[str] = Field(default=None, alias="QDRANT_API_KEY")
     pinecone_api_key: Optional[str] = Field(default=None, alias="PINECONE_API_KEY")
     pinecone_index: Optional[str] = Field(default=None, alias="PINECONE_INDEX")

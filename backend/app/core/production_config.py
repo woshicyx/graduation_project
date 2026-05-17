@@ -31,7 +31,7 @@ class ProductionSettings(BaseSettings):
     db_password: str = Field(alias="DB_PASSWORD")
 
     # 向量数据库配置
-    qdrant_url: Optional[AnyHttpUrl] = Field(alias="QDRANT_URL")
+    qdrant_url: Optional[str] = Field(default=None, alias="QDRANT_URL")
     qdrant_api_key: Optional[str] = Field(alias="QDRANT_API_KEY")
 
     # 智谱 AI 配置
