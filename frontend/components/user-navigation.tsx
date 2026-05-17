@@ -136,7 +136,7 @@ export function UserNavigation() {
       <div className="hidden sm:flex items-center gap-2">
         {user ? (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={user.avatar_url} alt={user.display_name || user.username} />

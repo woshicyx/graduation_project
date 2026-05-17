@@ -61,11 +61,13 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
   const spokenLanguages = parseJsonArray<string>(movie.spoken_languages);
 
   // 处理创建影评
-  const handleCreateReview = async (reviewData: Record<string, unknown>) => {
+  const handleCreateReview = async (reviewData: { rating: number; title: string; content: string }) => {
     try {
       await createReviewMutation.mutateAsync({
         movie_id: parseInt(movieId),
-        ...reviewData,
+        rating: reviewData.rating,
+        title: reviewData.title,
+        content: reviewData.content,
       });
       setShowReviewForm(false);
     } catch (error) {
@@ -166,7 +168,7 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
                 <Clock className="w-4 h-4 mr-2" />
                 时长
               </div>
-              <div className="text-lg font-semibold">{formatRuntime(movie.runtime as unknown)}</div>
+              <div className="text-lg font-semibold">{formatRuntime(movie.runtime as number)}</div>
             </div>
             
             <div className="space-y-1">
@@ -194,7 +196,7 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
             <div className="space-y-1">
               <div className="text-sm text-gray-500">预算</div>
               <div className="text-lg font-semibold">
-                {movie.budget ? formatBoxOffice(movie.budget as unknown) : '未知'}
+              {movie.budget ? formatBoxOffice(movie.budget as number) : '未知'}
               </div>
             </div>
           </div>

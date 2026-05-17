@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { searchMovies, MovieListItem } from "@/lib/api/movie";
 import { Sparkles, Play, Loader2, Clapperboard, Star } from "lucide-react";
@@ -39,7 +39,7 @@ const YEAR_TAGS = [
   { label: "更早", value: 1980 },
 ];
 
-export default function MoviesPage() {
+function MoviesPageContent() {
   const searchParams = useSearchParams();
   const [movies, setMovies] = useState<MovieListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -474,9 +474,21 @@ export default function MoviesPage() {
           href="/chat"
           className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-red-600 to-red-700 shadow-lg shadow-red-500/25 transition-all hover:scale-105 hover:shadow-red-500/50"
         >
-          <Sparkles className="h-6 w-6 text-white" />
+        <Sparkles className="h-6 w-6 text-white" />
         </Link>
       </main>
     </div>
+  );
+}
+
+export default function MoviesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+      </div>
+    }>
+      <MoviesPageContent />
+    </Suspense>
   );
 }
