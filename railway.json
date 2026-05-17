@@ -5,10 +5,13 @@
       "builder": "python",
       "pythonVersion": "3.11",
       "srcDir": "backend",
-      "exclude": ["frontend/**", "*.json", "*.md", "paper/**", ".gitignore", ".env*"]
+      "exclude": ["frontend/**", "*.json", "*.md", "paper/**", ".gitignore", ".env*"],
+      "env": {
+        "PIP_INDEX_URL": "https://pypi.org/simple"
+      }
     }
   },
   "deploy": {
-    "startCommand": "cd backend && pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    "startCommand": "cd backend && python3 -m pip install -r requirements.txt && python3 -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
   }
 }
