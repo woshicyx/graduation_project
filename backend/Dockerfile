@@ -10,14 +10,14 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖文件
-COPY requirements.txt .
+# 复制后端代码
+COPY backend/requirements.txt ./requirements.txt
 
 # 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
-COPY . .
+COPY backend/ ./app/
 
 # 暴露端口
 EXPOSE 8000
