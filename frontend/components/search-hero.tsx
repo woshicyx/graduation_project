@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, SlidersHorizontal, ChevronDown, X, Loader2 } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,12 +52,6 @@ export function SearchHero() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 清除所有筛选条件
-  const clearFilters = () => {
-    setSelectedGenre(null);
-    setSelectedYear(null);
-    setSelectedRating(null);
-  };
 
   // 获取当前筛选条件文本
   const getFilterText = () => {

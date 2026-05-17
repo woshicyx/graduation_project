@@ -90,7 +90,7 @@ class LLMService:
 - 电影名: {title} {year_str}
 - 类型: {genre_str}
 - 评分: {rating_str}
-{director_str}
+- 导演: {director_str}
 
 请用1-2句简洁的中文推荐理由，要有同理心，像朋友推荐一样告诉用户为什么这部电影适合他现在的状态。
 

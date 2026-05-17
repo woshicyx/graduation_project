@@ -109,7 +109,7 @@ export default function ChatPage() {
           setCurrentMovie(movie);
           movies.push(movie);
         },
-        (total, timeMs) => {
+        (_total, _timeMs) => {
           if (movies.length > 0) {
             const aiResponse = `根据你的需求「${query}」，我为你推荐以下 ${movies.length} 部电影，点击卡片可以查看详细信息：`;
             setMessages(prev => [...prev, { role: "assistant", content: aiResponse, movies }]);
@@ -234,8 +234,12 @@ export default function ChatPage() {
                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
                           />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white/10">
-                            <Play className="h-12 w-12 text-white/30" />
+                          /* 极简文字海报 (Typography Poster) - 无海报时的优雅降级 */
+                          <div className="w-full h-full bg-gradient-to-br from-gray-800 via-gray-900 to-[#1a1014] ring-1 ring-inset ring-white/5 flex flex-col items-center justify-center p-4">
+                            <span className="text-center text-sm font-black text-white/70 leading-snug tracking-wider shadow-black drop-shadow-lg line-clamp-3">
+                              {movie.title}
+                            </span>
+                            <div className="w-6 h-0.5 bg-pink-500/50 mt-3 rounded-full" />
                           </div>
                         )}
                         
@@ -347,7 +351,7 @@ export default function ChatPage() {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="描述你想要的电影，比如：'我想看一部类似《盗梦空间》的烧脑悬疑片'"
+              placeholder="描述你想要的电影，比如：「我想看一部类似盗梦空间的烧脑悬疑片」"
               rows={2}
               className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
               onKeyDown={(e) => {
@@ -368,7 +372,7 @@ export default function ChatPage() {
             </button>
           </div>
           <p className="mt-2 text-center text-xs text-white/40">
-            支持中文和英文描述，如："Nolan's sci-fi movies with high rating"
+            支持中文和英文描述，如：「Nolan sci-fi movies with high rating」
           </p>
         </form>
       </main>

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
-import { searchMovies, getMoviesByGenre, getMoviesByRating, getMoviesByYear, getMovies, MovieListItem } from "@/lib/api/movie";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { searchMovies, getMovies, MovieListItem } from "@/lib/api/movie";
 import { recommendMovies, RecommendItem } from "@/lib/api/ai";
-import { Sparkles, Search, Loader2 } from "lucide-react";
+import { Sparkles, Search, Loader2, X } from "lucide-react";
 import MovieWallBackground from "@/components/MovieWallBackground";
 import MovieCard from "@/components/MovieCard";
 
@@ -14,16 +14,114 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'keyword' | 'ai'>('keyword');
-  const [isSearching, setIsSearching] = useState(false);
   
   // 筛选状态
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedRating, setSelectedRating] = useState<{min?: number, max?: number} | null>(null);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  
+  // 检测到的类型关键词（用于自动转换）
+  const [detectedGenre, setDetectedGenre] = useState<string | null>(null);
+  
+  // 防抖定时器ref
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 类型关键词映射（用于自动检测用户输入的类型）
+  const genreKeywords: Record<string, string> = {
+    "动作": "动作",
+    "动作片": "动作",
+    "喜剧": "喜剧",
+    "喜剧片": "喜剧",
+    "科幻": "科幻",
+    "科幻片": "科幻",
+    "爱情": "爱情",
+    "爱情片": "爱情",
+    "悬疑": "悬疑",
+    "悬疑片": "悬疑",
+    "动画": "动画",
+    "动画片": "动画",
+    "恐怖": "恐怖",
+    "恐怖片": "恐怖",
+    "冒险": "冒险",
+    "冒险片": "冒险",
+    "奇幻": "奇幻",
+    "奇幻片": "奇幻",
+    "惊悚": "惊悚",
+    "惊悚片": "惊悚",
+    "战争": "战争",
+    "战争片": "战争",
+    "纪录": "纪录",
+    "纪录片": "纪录",
+    "家庭": "家庭",
+    "剧情": "剧情",
+    "剧情片": "剧情",
+    "drama": "剧情",
+    "comedy": "喜剧",
+    "action": "动作",
+    "scifi": "科幻",
+    "science fiction": "科幻",
+    "horror": "恐怖",
+    "thriller": "惊悚",
+    "romance": "爱情",
+    "animation": "动画",
+    "adventure": "冒险",
+    "fantasy": "奇幻",
+    "war": "战争",
+    "documentary": "纪录",
+  };
+
+  // 类型映射：中文标签->数据库类型（英文）
+  const genreMap: Record<string, string> = {
+    "动作": "Action",
+    "喜剧": "Comedy",
+    "科幻": "Science Fiction",
+    "爱情": "Romance",
+    "悬疑": "Mystery",
+    "动画": "Animation",
+    "恐怖": "Horror",
+    "冒险": "Adventure",
+    "奇幻": "Fantasy",
+    "惊悚": "Thriller",
+    "战争": "War",
+    "纪录": "Documentary",
+    "家庭": "Family",
+    "剧情": "Drama",
+  };
+
+  // 年代映射
+  const yearMap: Record<string, {min: number, max: number}> = {
+    "2020s": { min: 2020, max: 2029 },
+    "2010s": { min: 2010, max: 2019 },
+    "2000s": { min: 2000, max: 2009 },
+    "1990s": { min: 1990, max: 1999 },
+    "1980s": { min: 1980, max: 1989 },
+    "1970s": { min: 1970, max: 1979 },
+    "1960s": { min: 1960, max: 1969 },
+    "更早": { min: 1900, max: 1959 },
+  };
+
+  // 检测输入是否包含类型关键词
+  const detectGenreFromQuery = useCallback((input: string): string | null => {
+    const trimmedInput = input.trim().toLowerCase();
+    
+    // 直接匹配
+    if (genreKeywords[trimmedInput]) {
+      return genreKeywords[trimmedInput];
+    }
+    
+    // 模糊匹配（前缀或包含）
+    for (const [keyword, genre] of Object.entries(genreKeywords)) {
+      if (trimmedInput.startsWith(keyword) || keyword.startsWith(trimmedInput)) {
+        return genre;
+      }
+    }
+    
+    return null;
+  }, []);
+
+  // 处理搜索
   const handleSearch = useCallback(async () => {
     setIsLoading(true);
-    setIsSearching(true);
     setError(null);
 
     try {
@@ -44,26 +142,45 @@ export default function SearchPage() {
           director: null,
         })));
       } else {
-        // 如果有筛选条件，使用筛选API
-        if (selectedGenre || selectedRating || selectedYear) {
-          // 使用 searchMovies API，支持多种筛选条件组合
-          const genreEn = selectedGenre ? (genreMap[selectedGenre] || selectedGenre) : undefined;
-          const yearRange = selectedYear ? yearMap[selectedYear] : undefined;
-          
-          const result = await searchMovies("", {
-            genre: genreEn,
-            rating_min: selectedRating?.min,
-            rating_max: selectedRating?.max,
-            year_min: yearRange?.min,
-            year_max: yearRange?.max,
-            page_size: 50,
-          });
-          setMovies(result.items);
-        } else if (query.trim()) {
-          const result = await searchMovies(query);
+        // 构建搜索参数，支持关键词 + 标签组合搜索
+        const searchParams: any = {
+          page_size: 50,
+        };
+        
+        // 添加类型筛选 - 直接传递中文类型名，后端会进行模糊匹配
+        const effectiveGenre = selectedGenre || detectedGenre;
+        if (effectiveGenre) {
+          searchParams.genres = effectiveGenre;  // 直接传中文，如"动作"
+        }
+        
+        // 添加评分筛选
+        if (selectedRating) {
+          if (selectedRating.min !== undefined) {
+            searchParams.rating_min = selectedRating.min;
+          }
+          if (selectedRating.max !== undefined) {
+            searchParams.rating_max = selectedRating.max;
+          }
+        }
+        
+        // 添加年代筛选
+        if (selectedYear) {
+          const yearRange = yearMap[selectedYear];
+          if (yearRange) {
+            searchParams.year_min = yearRange.min;
+            searchParams.year_max = yearRange.max;
+          }
+        }
+        
+        // 如果有筛选条件或关键词，使用searchMovies API
+        const hasFilters = selectedGenre || detectedGenre || selectedRating || selectedYear || query.trim();
+        if (hasFilters) {
+          // 关键词作为查询文本传入（但如果已检测到类型关键词则不传入，避免重复）
+          const searchQuery = (effectiveGenre && query.trim() === effectiveGenre) ? "*" : query.trim();
+          const result = await searchMovies(searchQuery || "*", searchParams);
           setMovies(result.items);
         } else {
-          // 无筛选条件时显示全部电影 - 使用 getMovies API
+          // 无筛选条件时显示全部电影
           const result = await getMovies(1, 50);
           setMovies(result.items);
         }
@@ -74,97 +191,86 @@ export default function SearchPage() {
       setMovies([]);
     } finally {
       setIsLoading(false);
-      setIsSearching(false);
     }
-  }, [query, searchMode, selectedGenre, selectedRating, selectedYear]);
+  }, [query, searchMode, selectedGenre, detectedGenre, selectedRating, selectedYear]);
+
+  // 处理输入变化：检测类型关键词
+  const handleQueryChange = (newQuery: string) => {
+    setQuery(newQuery);
+    
+    // 检测是否包含类型关键词
+    const detected = detectGenreFromQuery(newQuery);
+    setDetectedGenre(detected);
+    
+    // 如果检测到类型，自动设置筛选并清空输入
+    if (detected && newQuery.trim()) {
+      // 只有当用户输入的内容就是类型关键词时才自动筛选
+      const normalizedInput = newQuery.trim().toLowerCase();
+      if (genreKeywords[normalizedInput] === detected) {
+        setSelectedGenre(detected);
+      }
+    }
+  };
 
   // 防抖搜索
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
       handleSearch();
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [query, searchMode, selectedGenre, selectedRating, selectedYear, handleSearch]);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [handleSearch]);
 
   // 清除所有筛选
   const clearFilters = () => {
     setSelectedGenre(null);
     setSelectedRating(null);
     setSelectedYear(null);
-    setQuery("");
+    // 不清除关键词和检测到的类型
   };
 
-  // 类型映射：中文->英文（用于API请求）
-  const genreMap: Record<string, string> = {
-    "动作": "Action",
-    "喜剧": "Comedy",
-    "科幻": "Science Fiction",
-    "爱情": "Romance",
-    "悬疑": "Mystery",
-    "动画": "Animation",
-    "恐怖": "Horror",
-    "冒险": "Adventure",
-    "奇幻": "Fantasy",
-    "惊悚": "Thriller",
-    "战争": "War",
-    "纪录": "Documentary",
-    "家庭": "Family",
-    "剧情": "Drama",
-    "Music": "Music",
-    "Western": "Western",
-    "History": "History",
-    "Science Fiction": "Science Fiction",
-    "TV Movie": "TV Movie",
+  // 清除检测到的类型
+  const clearDetectedGenre = () => {
+    setDetectedGenre(null);
+    setSelectedGenre(null);
   };
 
-  // 年代映射：标签->年份范围
-  const yearMap: Record<string, {min: number, max: number}> = {
-    "2020s": { min: 2020, max: 2029 },
-    "2010s": { min: 2010, max: 2019 },
-    "2000s": { min: 2000, max: 2009 },
-    "1990s": { min: 1990, max: 1999 },
-    "1980s": { min: 1980, max: 1989 },
-    "1970s": { min: 1970, max: 1979 },
-    "1960s": { min: 1960, max: 1969 },
-    "更早": { min: 1900, max: 1959 },
-  };
-
-  // 类型标签点击（同一维度只选一个，但不同维度可多选）
+  // 类型标签点击
   const handleGenreClick = (genre: string) => {
     if (genre === '全部') {
       setSelectedGenre(null);
     } else {
-      // 同一维度选一个：选新标签替换旧标签
       setSelectedGenre(selectedGenre === genre ? null : genre);
     }
-    setQuery("");
     setSearchMode('keyword');
   };
 
-  // 评分标签点击（同一维度只选一个，但不同维度可多选）
+  // 评分标签点击
   const handleRatingClick = (min?: number, max?: number) => {
-    // 检查是否已选中当前评分
     const isSame = selectedRating?.min === min && selectedRating?.max === max;
     setSelectedRating(isSame ? null : { min, max });
-    setQuery("");
     setSearchMode('keyword');
   };
 
-  // 年代标签点击（同一维度只选一个，但不同维度可多选）
+  // 年代标签点击
   const handleYearClick = (year: string) => {
-    // 同一维度选一个：选新标签替换旧标签
     setSelectedYear(selectedYear === year ? null : year);
-    setQuery("");
     setSearchMode('keyword');
   };
 
-  // 获取有海报的电影用于背景（从已有电影中筛选）
-  const backgroundPosters = movies.filter(m => m.poster_path).slice(0, 10);
+  // 计算当前有效的筛选类型
+  const effectiveGenre = selectedGenre || detectedGenre;
 
   return (
     <div className="relative min-h-screen bg-[#0a0a0f] overflow-hidden">
-      {/* 使用可复用的电影墙背景组件 */}
       <MovieWallBackground darkness="heavy" />
 
       <main className="relative z-10 flex min-h-screen flex-col px-4 pb-20 pt-4">
@@ -200,7 +306,7 @@ export default function SearchPage() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleQueryChange(e.target.value)}
               placeholder={searchMode === 'ai' ? "用自然语言描述你想要的电影..." : "搜索电影、导演、类型..."}
               className="w-full rounded-xl border border-white/10 bg-white/5 py-4 pl-12 pr-4 text-white placeholder-white/30 backdrop-blur focus:border-red-500/50 focus:outline-none focus:ring-2 focus:ring-red-500/20 transition-all"
             />
@@ -210,6 +316,19 @@ export default function SearchPage() {
               </div>
             )}
           </div>
+
+          {/* 检测到的类型提示 */}
+          {detectedGenre && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-red-400">
+              <span>已自动识别为类型筛选：{detectedGenre}</span>
+              <button 
+                onClick={clearDetectedGenre}
+                className="p-1 hover:bg-white/10 rounded"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* 搜索模式切换 */}
           <div className="mt-4 flex items-center gap-4">
@@ -250,12 +369,12 @@ export default function SearchPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {["全部", "动作", "喜剧", "科幻", "爱情", "悬疑", "动画", "恐怖", "冒险", "奇幻", "惊悚", "战争", "纪录", "家庭", "剧情", "Romance", "Music", "Western", "History", "Mystery", "Science Fiction", "TV Movie"].map((tag) => (
+              {["全部", "动作", "喜剧", "科幻", "爱情", "悬疑", "动画", "恐怖", "冒险", "奇幻", "惊悚", "战争", "纪录", "家庭", "剧情"].map((tag) => (
                 <button
                   key={tag}
                   onClick={() => handleGenreClick(tag === '全部' ? '全部' : tag)}
                   className={`rounded-full border px-3 py-1 text-xs transition-all ${
-                    (tag === '全部' && !selectedGenre) || selectedGenre === tag
+                    (tag === '全部' && !effectiveGenre) || effectiveGenre === tag
                       ? 'border-red-500 bg-red-500/20 text-white'
                       : 'border-white/10 bg-white/5 text-white/50 hover:border-red-500/50 hover:text-white'
                   }`}
@@ -327,7 +446,7 @@ export default function SearchPage() {
               {searchMode === 'ai' ? 'AI 推荐结果' : '搜索结果'}
             </h2>
             <p className="text-sm text-white/50">
-              {query ? (
+              {query || effectiveGenre || selectedRating || selectedYear ? (
                 <>找到 {movies.length} 部相关电影</>
               ) : (
                 "选择类型或输入关键词开始搜索"
@@ -335,14 +454,14 @@ export default function SearchPage() {
             </p>
           </div>
 
-          {/* 电影列表 - 使用MovieCard组件 */}
+          {/* 电影列表 */}
           {movies.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {movies.map((movie) => (
                 <MovieCard key={movie.id} movie={movie} />
               ))}
             </div>
-          ) : !isLoading && query && (
+          ) : !isLoading && (query || effectiveGenre || selectedRating || selectedYear) && (
             <div className="text-center text-white/50 py-12">
               <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-white/5 flex items-center justify-center">
                 <Search className="h-8 w-8 text-white/30" />

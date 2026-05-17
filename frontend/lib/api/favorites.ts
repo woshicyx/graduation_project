@@ -185,7 +185,7 @@ export async function checkFavoriteStatus(
     );
 
     return response;
-  } catch (error) {
+  } catch {
     // 出错时默认未收藏
     return { is_favorited: false, is_liked: false };
   }

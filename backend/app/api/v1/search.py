@@ -40,13 +40,20 @@ def search_movies(
             conditions.append("(title ILIKE %s OR original_title ILIKE %s OR overview ILIKE %s)")
             params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
         
-        # 类型筛选（多选，使用OR逻辑）
+        # 类型筛选（多选，使用OR逻辑）- 改为在genres/title/overview中模糊匹配中文
         if genres:
             genre_list = [g.strip() for g in genres.split(',') if g.strip()]
             if genre_list:
-                genre_conditions = [f"genres ILIKE %s" for _ in genre_list]
+                # 在 genres、title、overview 字段中同时搜索，兼容中文类型名和英文类型名
+                genre_conditions = []
+                for g in genre_list:
+                    # 中文类型名：动作、喜剧、科幻、爱情...
+                    # 英文类型名：Action、Comedy、Science Fiction...
+                    genre_conditions.append(
+                        f"(genres ILIKE %s OR title ILIKE %s OR overview ILIKE %s)"
+                    )
+                    params.extend([f"%{g}%", f"%{g}%", f"%{g}%"])
                 conditions.append(f"({' OR '.join(genre_conditions)})")
-                params.extend([f"%{g}%" for g in genre_list])
         
         if director:
             conditions.append("director ILIKE %s")

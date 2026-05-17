@@ -1,0 +1,29 @@
+graph TD
+    A[用户查询] --> B[FastAPI Route Handler]
+    B --> C{LLM 意图解析<br/>requirement_extractor}
+    C -->|成功| D[提取 semantic_query<br/>提取 filters]
+    C -->|失败| E[正则降级解析]
+    E --> K
+    
+    D --> F{判断策略<br/>filters是否为空?}
+    F -->|有过滤条件| G[filter_first 策略]
+    F -->|纯语义查询| H[search_first 策略]
+    
+    %% filter_first 路径
+    G --> I1[PostgreSQL 条件过滤<br/>fetch_filtered_movie_ids<br/>获取候选集 max=500]
+    I1 --> I2{候选集为空?}
+    I2 -->|是| I3[返回空结果]
+    I2 -->|否| I4[向量搜索 Qdrant<br/>返回 Top-100]
+    I4 --> I5[内存过滤<br/>保留候选集内电影]
+    
+    %% search_first 路径
+    H --> J1[向量搜索 Qdrant<br/>返回 Top-100]
+    J1 --> J2[内存过滤<br/>应用 filters 条件]
+    
+    I5 --> K[综合排序<br/>0.65×向量分+0.20×评分+0.15×热度]
+    J2 --> K
+    
+    K --> L[候选电影 Top-N<br/>enhanced_hybrid_search返回]
+    L --> M[批量生成推荐理由<br/>LLMService.batch_generate_reasons]
+    M --> N[SSE event: movie<br/>逐个发送含reason的电影]
+    N --> O[前端实时渲染]

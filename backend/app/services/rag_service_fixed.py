@@ -378,7 +378,7 @@ def filter_first_search(
         电影列表
     """
     # 1. 根据过滤条件获取候选电影
-    candidate_ids = fetch_filtered_movie_ids(filters, limit=500)
+    candidate_ids = set(fetch_filtered_movie_ids(filters, limit=500))
     
     if not candidate_ids:
         print(f"没有符合条件的电影: {filters}")
@@ -389,35 +389,36 @@ def filter_first_search(
     # 2. 获取查询向量
     query_vector = get_text_embeddings([query])[0]
     
-    # 3. 在候选电影中进行向量搜索
+    # 3. 先进行向量搜索（不限制范围），然后在内存中过滤
     try:
         client = get_qdrant_client()
         
-        # 使用 query_points 在候选集中搜索
+        # 先扩大范围搜索
         search_results = client.query_points(
             collection_name="movie_semantic",
             query=query_vector,
-            query_filter=models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key="id",
-                        match=models.MatchAny(any=candidate_ids)
-                    )
-                ]
-            ),
-            limit=limit,
+            limit=100,  # 扩大搜索范围
             with_payload=True,
         )
         
-        # 4. 获取详细信息
-        result_ids = [int(point.id) for point in search_results.points]
-        score_map = {int(point.id): point.score for point in search_results.points}
+        # 4. 在内存中过滤出候选集内的电影
+        candidate_scores = {}
+        for point in search_results.points:
+            point_id = int(point.id) if isinstance(point.id, int) else int(point.id)
+            if point_id in candidate_ids:
+                candidate_scores[point_id] = point.score
         
+        if not candidate_scores:
+            print("向量搜索结果中无符合条件的候选电影")
+            return []
+        
+        # 5. 获取详细信息
+        result_ids = list(candidate_scores.keys())
         movies = fetch_movies_by_ids(result_ids)
         
         # 添加分数
         for movie in movies:
-            movie["vector_score"] = score_map.get(movie["id"], 0)
+            movie["vector_score"] = candidate_scores.get(movie["id"], 0)
             # 计算综合分数
             vote_norm = (movie.get("vote_average", 0) or 0) / 10.0
             popularity = movie.get("popularity", 0) or 0
@@ -753,9 +754,13 @@ def enhanced_hybrid_search(
     
     print(f"LLM 解析结果: 语义查询={semantic_query}, 过滤={filters}")
     
-    # 3. 始终使用 search_first 策略，避免 filter_first 的 id 索引问题
-    # filter_first 需要 Qdrant 为 id 字段创建索引
-    strategy = "search_first"
+    # 3. 根据过滤条件自动选择策略
+    # 当存在明确的硬性过滤条件时，使用 filter_first 前置缩小范围
+    # 当仅有语义查询或过滤条件较弱时，使用 search_first 最大化语义相关性
+    if filters and any(filters.values()):
+        strategy = "filter_first"
+    else:
+        strategy = "search_first"
     
     # 4. 执行混合搜索
     movies = hybrid_search(

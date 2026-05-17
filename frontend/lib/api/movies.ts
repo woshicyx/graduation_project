@@ -101,7 +101,7 @@ export function transformDatabaseMovie(dbMovie: DatabaseMovie): Movie {
   }
 
   // 构建海报URL（如果没有poster_path，使用默认图片）
-  let posterUrl = dbMovie.poster_path 
+  const posterUrl = dbMovie.poster_path 
     ? `https://image.tmdb.org/t/p/w500${dbMovie.poster_path}`
     : '/placeholder-poster.jpg';
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { searchMovies, MovieListItem, PaginatedMovies } from "@/lib/api/movie";
+import { searchMovies, MovieListItem } from "@/lib/api/movie";
 import { Sparkles, Play, Loader2, Clapperboard, Star } from "lucide-react";
 
 // 排序选项
@@ -14,10 +14,10 @@ const SORT_OPTIONS = [
   { label: "票房最高", value: "boxoffice" },
 ];
 
-// 电影类型标签（使用英文，与数据库genres字段匹配）
+// 电影类型标签（使用中文，后端会进行模糊匹配）
 const GENRE_TAGS = [
-  "全部", "Action", "Comedy", "Drama", "Science Fiction", "Romance", "Thriller", "Horror", 
-  "Crime", "Animation", "Adventure", "Fantasy", "Documentary", "Family"
+  "全部", "动作", "喜剧", "剧情", "科幻", "爱情", "惊悚", "恐怖", 
+  "犯罪", "动画", "冒险", "奇幻", "纪录", "家庭"
 ];
 
 // 评分标签
@@ -98,7 +98,7 @@ export default function MoviesPage() {
 
     try {
       // 构建筛选参数
-      const options: any = {
+      const options: Record<string, unknown> = {
         page: pageNum,
         page_size: 24,
       };
@@ -401,8 +401,12 @@ export default function MoviesPage() {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-white/10">
-                          <Clapperboard className="h-12 w-12 text-white/30" />
+                        /* 极简文字海报 (Typography Poster) - 无海报时的优雅降级 */
+                        <div className="w-full h-full bg-gradient-to-br from-gray-800 via-gray-900 to-[#1a1014] ring-1 ring-inset ring-white/5 flex flex-col items-center justify-center p-4">
+                          <span className="text-center text-sm font-black text-white/70 leading-snug tracking-wider shadow-black drop-shadow-lg line-clamp-3">
+                            {movie.title}
+                          </span>
+                          <div className="w-6 h-0.5 bg-pink-500/50 mt-3 rounded-full" />
                         </div>
                       )}
                       {/* 悬停遮罩 */}

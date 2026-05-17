@@ -107,7 +107,7 @@ export async function logout(): Promise<void> {
     await apiRequest<{ message: string }>('/api/auth/logout', {
       method: 'POST',
     });
-  } catch (error) {
+  } catch {
     // 即使API调用失败，也清理本地状态
     console.warn('登出API调用失败，将清理本地状态');
   }

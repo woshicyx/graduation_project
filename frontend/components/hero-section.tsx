@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Play, Star, Calendar, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRandomMovies } from "@/hooks/useMovies";
-import { Movie } from "@/lib/api/movies";
 
 export function HeroSection() {
   const [currentIndex, setCurrentIndex] = useState(0);

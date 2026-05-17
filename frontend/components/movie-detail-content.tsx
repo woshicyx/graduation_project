@@ -55,12 +55,12 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
   }
 
   // 解析电影数据
-  const genres = parseJsonArray<string>(movie.genres as any);
-  const productionCompanies = parseJsonArray<string>(movie.production_companies as any);
-  const spokenLanguages = parseJsonArray<string>(movie.spoken_languages as any);
+  const genres = parseJsonArray<string>(movie.genres as unknown);
+  const productionCompanies = parseJsonArray<string>(movie.production_companies as unknown);
+  const spokenLanguages = parseJsonArray<string>(movie.spoken_languages as unknown);
 
   // 处理创建影评
-  const handleCreateReview = async (reviewData: any) => {
+  const handleCreateReview = async (reviewData: Record<string, unknown>) => {
     try {
       await createReviewMutation.mutateAsync({
         movie_id: parseInt(movieId),
@@ -72,7 +72,7 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
     }
   };
 
-  // 处理投票
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleVoteReview = async (reviewId: number, helpful: boolean) => {
     try {
       await voteReviewMutation.mutateAsync({ reviewId, helpful });
@@ -165,7 +165,7 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
                 <Clock className="w-4 h-4 mr-2" />
                 时长
               </div>
-              <div className="text-lg font-semibold">{formatRuntime(movie.runtime as any)}</div>
+              <div className="text-lg font-semibold">{formatRuntime(movie.runtime as unknown)}</div>
             </div>
             
             <div className="space-y-1">
@@ -193,7 +193,7 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
             <div className="space-y-1">
               <div className="text-sm text-gray-500">预算</div>
               <div className="text-lg font-semibold">
-                {movie.budget ? formatBoxOffice(movie.budget as any) : '未知'}
+                {movie.budget ? formatBoxOffice(movie.budget as unknown) : '未知'}
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
             </p>
             {movie.tagline && (
               <div className="mt-4 italic text-gray-600 border-l-4 border-gray-300 pl-4">
-                "{movie.tagline}"
+                「{movie.tagline}」
               </div>
             )}
           </div>

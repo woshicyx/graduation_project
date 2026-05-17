@@ -22,6 +22,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public details?: any
   ) {
     super(message);
@@ -97,6 +98,7 @@ export async function apiRequest<T>(
 /**
  * GET请求
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
   const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
   return apiRequest<T>(`${endpoint}${queryString}`, {
@@ -107,7 +109,8 @@ export async function get<T>(endpoint: string, params?: Record<string, any>): Pr
 /**
  * POST请求
  */
-export async function post<T>(endpoint: string, data?: any): Promise<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function post<T>(endpoint: string, data?: unknown): Promise<T> {
   return apiRequest<T>(endpoint, {
     method: 'POST',
     body: data ? JSON.stringify(data) : undefined,
@@ -117,7 +120,8 @@ export async function post<T>(endpoint: string, data?: any): Promise<T> {
 /**
  * PUT请求
  */
-export async function put<T>(endpoint: string, data?: any): Promise<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function put<T>(endpoint: string, data?: unknown): Promise<T> {
   return apiRequest<T>(endpoint, {
     method: 'PUT',
     body: data ? JSON.stringify(data) : undefined,

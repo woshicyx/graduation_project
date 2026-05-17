@@ -8,7 +8,7 @@ import { getMovieDetail, MovieDetail } from "@/lib/api/movie";
 import { useAuth } from "@/contexts/AuthContext";
 import { addWatchHistory } from "@/lib/api/history";
 import FavoriteButton from "@/components/favorite-button";
-import { Sparkles, Play, Clock, Calendar, Star, User, Heart } from "lucide-react";
+import { Sparkles, Play, Clock, Calendar, Star, User } from "lucide-react";
 
 interface MoviePageProps {
   params: Promise<{ id: string }>;

@@ -16,7 +16,6 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 import { getPersonalizedRecommendations } from "@/lib/api/personalized";
-import { Heart, X } from "lucide-react";
 import { 
   Search, 
   Sparkles, 
@@ -28,13 +27,10 @@ import {
   Flame,
   Clapperboard,
   Tv2,
-  Clock,
   Award,
   Wand2,
   DollarSign,
-  TrendingUp as TrendingUpIcon,
-  Loader2,
-  Send
+  Heart,
 } from "lucide-react";
 
 export default function Home() {
@@ -240,7 +236,7 @@ export default function Home() {
                           搜索电影、导演、类型...
                         </p>
                         <p className="text-xs text-gray-400">
-                          试试 "科幻电影" 或 "诺兰导演"
+                          试试「科幻电影」或「诺兰导演」
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

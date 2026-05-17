@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Heart, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { toggleFavorite, checkFavoriteStatus, FavoriteStatus } from '@/lib/api/favorites';
+import { toggleFavorite, checkFavoriteStatus } from '@/lib/api/favorites';
 import { useRouter } from 'next/navigation';
 
 interface FavoriteButtonProps {
@@ -16,7 +16,6 @@ interface FavoriteButtonProps {
 
 export default function FavoriteButton({
   movieId,
-  movieTitle,
   size = 'md',
   showText = false,
   className = '',

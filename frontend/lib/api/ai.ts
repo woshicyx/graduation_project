@@ -109,7 +109,7 @@ export async function recommendMoviesStream(
 
       for (const line of lines) {
         if (line.startsWith('event: ')) {
-          const event = line.slice(7).trim();
+          // 忽略事件类型
           continue;
         }
         if (line.startsWith('data: ')) {

@@ -119,6 +119,7 @@ export async function searchMovies(
     page_size?: number;
   }
 ): Promise<PaginatedMovies> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const params: Record<string, any> = { query: query };
   // 支持多选genres
   if (options?.genres) params.genres = options.genres;
@@ -141,6 +142,7 @@ export async function searchMovies(
  * 获取电影详情
  */
 export async function getMovieDetail(id: number): Promise<MovieDetail> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await get<any>(`/api/movies/${id}`);
   
   // 解析 genres 和 keywords 字段（后端返回的是 JSON 字符串）
@@ -224,7 +226,6 @@ export async function getMoviesByYear(year: string, pageSize = 50): Promise<Pagi
         yearEnd = parsedYear;
       } else {
         yearStart = 2000;
-        yearEnd = 2024;
       }
     }
   }

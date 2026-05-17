@@ -149,10 +149,12 @@ export default function HistoryPage() {
                               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-white/5">
-                              <svg className="h-16 w-16 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                              </svg>
+                            /* 极简文字海报 (Typography Poster) - 无海报时的优雅降级 */
+                            <div className="w-full h-full bg-gradient-to-br from-gray-800 via-gray-900 to-[#1a1014] ring-1 ring-inset ring-white/5 flex flex-col items-center justify-center p-4">
+                              <span className="text-center text-sm font-black text-white/70 leading-snug tracking-wider shadow-black drop-shadow-lg line-clamp-3">
+                                {item.movie?.title || "未知电影"}
+                              </span>
+                              <div className="w-6 h-0.5 bg-pink-500/50 mt-3 rounded-full" />
                             </div>
                           )}
                         </div>
