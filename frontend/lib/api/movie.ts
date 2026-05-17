@@ -223,7 +223,6 @@ export async function getMoviesByYear(year: string, pageSize = 50): Promise<Pagi
       const parsedYear = parseInt(year);
       if (!isNaN(parsedYear)) {
         yearStart = parsedYear;
-        yearEnd = parsedYear;
       } else {
         yearStart = 2000;
       }

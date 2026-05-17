@@ -70,8 +70,9 @@ export default function SearchPage() {
     "documentary": "纪录",
   };
 
-  // 类型映射：中文标签->数据库类型（英文）
-  const genreMap: Record<string, string> = {
+  // 类型映射：中文标签->数据库类型（英文）- 保留备用
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _genreMap: Record<string, string> = {
     "动作": "Action",
     "喜剧": "Comedy",
     "科幻": "Science Fiction",

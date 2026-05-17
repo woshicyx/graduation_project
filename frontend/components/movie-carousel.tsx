@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Star, TrendingUp, DollarSign, Play, Heart, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Movie } from "@/lib/api/movies";
 import { useTopBoxOffice, useTopRated } from "@/hooks/useMovies";
 import {
   Carousel,

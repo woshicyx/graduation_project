@@ -73,13 +73,6 @@ export default function Home() {
       });
   }, []);
 
-  // 切换展开/收起
-  const toggleExpand = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
 
   // 获取显示的电影（根据展开状态或轮播页码）
   const getDisplayMovies = (movies: MovieListItem[], section: string) => {

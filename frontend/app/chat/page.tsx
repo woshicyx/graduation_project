@@ -109,7 +109,7 @@ export default function ChatPage() {
           setCurrentMovie(movie);
           movies.push(movie);
         },
-        (_total, _timeMs) => {
+        () => {
           if (movies.length > 0) {
             const aiResponse = `根据你的需求「${query}」，我为你推荐以下 ${movies.length} 部电影，点击卡片可以查看详细信息：`;
             setMessages(prev => [...prev, { role: "assistant", content: aiResponse, movies }]);
