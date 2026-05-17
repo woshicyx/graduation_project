@@ -26,7 +26,9 @@ def create_app() -> FastAPI:
         # 生产环境：只允许前端域名
         allowed_origins = [
             "https://movieai.vercel.app",
+            "https://movie-ai-gamma.vercel.app",
             "https://movieai-*.vercel.app",
+            "*"  # 临时允许所有来源进行测试
         ]
     else:
         # 开发环境：允许本地和所有来源

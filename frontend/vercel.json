@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://movie-recommender-backend.up.railway.app/api/:path*"
+      "destination": "https://movieai-production.up.railway.app/api/:path*"
     }
   ],
   "headers": [
