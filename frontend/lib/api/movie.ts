@@ -207,17 +207,14 @@ export async function getMoviesByRating(
 export async function getMoviesByYear(year: string, pageSize = 50): Promise<PaginatedMovies> {
   // 解析年代字符串
   let yearStart: number;
-  let yearEnd: number;
   
   if (year.includes('更早') || year.includes('1960')) {
     yearStart = 1900;
-    yearEnd = 1960;
   } else {
     // 解析 "2020s" -> 2020-2029
     const match = year.match(/(\d{4})s/);
     if (match) {
       yearStart = parseInt(match[1]);
-      yearEnd = yearStart + 9;
     } else {
       // 尝试直接解析年份
       const parsedYear = parseInt(year);

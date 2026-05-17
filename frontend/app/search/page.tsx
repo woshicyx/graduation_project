@@ -144,6 +144,7 @@ export default function SearchPage() {
         })));
       } else {
         // 构建搜索参数，支持关键词 + 标签组合搜索
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const searchParams: any = {
           page_size: 50,
         };

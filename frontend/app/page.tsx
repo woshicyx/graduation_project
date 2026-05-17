@@ -41,8 +41,9 @@ export default function Home() {
   const [forYouMovies, setForYouMovies] = useState<MovieListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // 展开状态
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  // 展开状态 (保留以便后续扩展)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [expandedSections, _setExpandedSections] = useState<Record<string, boolean>>({});
   
   // Top50轮播状态
   const [currentTop50Page, setCurrentTop50Page] = useState(0);
