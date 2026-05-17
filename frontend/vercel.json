@@ -1,9 +1,8 @@
 {
-  "框架": "Next.js 14 (App Router)",
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-railway-app.railway.app/api/:path*"
+      "destination": "https://movieai-production.up.railway.app/api/:path*"
     }
   ],
   "headers": [

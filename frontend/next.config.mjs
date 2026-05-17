@@ -9,7 +9,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'img1.im半分t.com',
+        hostname: 'img1.imdb.com',
         pathname: '/**',
       },
     ],
