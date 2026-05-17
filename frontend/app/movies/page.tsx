@@ -98,7 +98,8 @@ export default function MoviesPage() {
 
     try {
       // 构建筛选参数
-      const options: Record<string, unknown> = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const options: Record<string, any> = {
         page: pageNum,
         page_size: 24,
       };

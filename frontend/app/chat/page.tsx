@@ -109,7 +109,8 @@ export default function ChatPage() {
           setCurrentMovie(movie);
           movies.push(movie);
         },
-        () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        (_total, _timeMs) => {
           if (movies.length > 0) {
             const aiResponse = `根据你的需求「${query}」，我为你推荐以下 ${movies.length} 部电影，点击卡片可以查看详细信息：`;
             setMessages(prev => [...prev, { role: "assistant", content: aiResponse, movies }]);
@@ -372,7 +373,7 @@ export default function ChatPage() {
             </button>
           </div>
           <p className="mt-2 text-center text-xs text-white/40">
-            支持中文和英文描述，如：「Nolan sci-fi movies with high rating」
+            支持中文和英文描述，如：&ldquo;Nolan sci-fi movies with high rating&rdquo;
           </p>
         </form>
       </main>

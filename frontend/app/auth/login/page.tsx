@@ -4,8 +4,18 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { validatePassword } from "@/lib/api/auth";
 import { Loader2, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
+
+// 密码验证函数
+function validatePassword(password: string): string | undefined {
+  if (!password) {
+    return "请输入密码";
+  }
+  if (password.length < 6) {
+    return "密码长度至少6位";
+  }
+  return undefined;
+}
 
 export default function LoginPage() {
   const router = useRouter();

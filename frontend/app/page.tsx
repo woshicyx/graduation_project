@@ -45,6 +45,10 @@ export default function Home() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [expandedSections, _setExpandedSections] = useState<Record<string, boolean>>({});
   
+  // 展开/收起功能 (保留以便后续扩展)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _toggleExpand = (section: string) => {};
+  
   // Top50轮播状态
   const [currentTop50Page, setCurrentTop50Page] = useState(0);
   const MOVIES_PER_PAGE = 10;

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { IconBrandGithub, IconBrandGoogle, IconMail, IconLock, IconUser } from "@tabler/icons-react";
+import { Github, Mail, Lock, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LoginFormProps {
@@ -118,8 +118,8 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="login-identifier">用户名或邮箱</Label>
-                <div className="relative">
-                  <IconMail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="login-identifier"
                     name="identifier"
@@ -142,8 +142,8 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
                     忘记密码？
                   </a>
                 </div>
-                <div className="relative">
-                  <IconLock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="login-password"
                     name="password"
@@ -167,7 +167,7 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="register-username">用户名</Label>
                 <div className="relative">
-                  <IconUser className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-username"
                     name="username"
@@ -183,7 +183,7 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="register-email">邮箱</Label>
                 <div className="relative">
-                  <IconMail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-email"
                     name="email"
@@ -199,7 +199,7 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="register-password">密码</Label>
                 <div className="relative">
-                  <IconLock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-password"
                     name="password"
@@ -216,7 +216,7 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
               <div className="space-y-2">
                 <Label htmlFor="register-confirm-password">确认密码</Label>
                 <div className="relative">
-                  <IconLock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-confirm-password"
                     name="confirmPassword"
@@ -254,7 +254,7 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
             onClick={() => handleSocialLogin("github")}
             className="w-full"
           >
-            <IconBrandGithub className="mr-2 h-4 w-4" />
+            <Github className="mr-2 h-4 w-4" />
             GitHub
           </Button>
           <Button
@@ -264,7 +264,7 @@ export function LoginForm({ className, onSuccess }: LoginFormProps) {
             onClick={() => handleSocialLogin("google")}
             className="w-full"
           >
-            <IconBrandGoogle className="mr-2 h-4 w-4" />
+            <Mail className="mr-2 h-4 w-4" />
             Google
           </Button>
         </div>

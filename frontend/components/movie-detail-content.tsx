@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Star, Calendar, Clock, DollarSign, Users, ThumbsUp, MessageSquare, Share2, Bookmark } from 'lucide-react';
-import { useMovieDetail, useMovieReviews, useMovieReviewStats, useCreateReview, useVoteReview, formatBoxOffice, formatRuntime, formatRating, getRatingColor, getRatingBgColor, parseJsonArray } from '@/hooks/useMovieDetail';
+import { useMovieDetail, useMovieReviews, useMovieReviewStats, useCreateReview, useVoteReview, formatBoxOffice, formatRuntime, formatRating, getRatingColor, getRatingBgColor } from '@/hooks/useMovieDetail';
+import { parseJsonArray } from '@/hooks';
 import { formatReviewDate, calculateHelpfulRate } from '@/lib/api/reviews';
 import ReviewForm from './review-form';
 import SimilarMovies from './similar-movies';
@@ -55,9 +56,9 @@ export default function MovieDetailContent({ movieId }: MovieDetailContentProps)
   }
 
   // 解析电影数据
-  const genres = parseJsonArray<string>(movie.genres as unknown);
-  const productionCompanies = parseJsonArray<string>(movie.production_companies as unknown);
-  const spokenLanguages = parseJsonArray<string>(movie.spoken_languages as unknown);
+  const genres = parseJsonArray<string>(movie.genres);
+  const productionCompanies = parseJsonArray<string>(movie.production_companies);
+  const spokenLanguages = parseJsonArray<string>(movie.spoken_languages);
 
   // 处理创建影评
   const handleCreateReview = async (reviewData: Record<string, unknown>) => {
